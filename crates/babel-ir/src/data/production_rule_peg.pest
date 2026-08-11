@@ -1,0 +1,8 @@
+alphanum      = _{ 'a'..'z' | 'A'..'Z' | ASCII_DIGIT }
+nonterm_scope = _{ "*" }
+WORD          =  { alphanum* }
+NONTERM       =  { nonterm_scope ~ WORD ~ nonterm_scope }
+ESCAPE        =  { "\\" }
+TERM          = @{ 'a'..'z' | ESCAPE ~ ANY | " "}
+OR           =  { "|" }
+RHS           =  { (NONTERM | TERM | OR)* }
