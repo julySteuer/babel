@@ -7,3 +7,5 @@ edition = "2024"
 babel-ir = { path = "../babel-ir" }
 babel-adapter = { path = "../babel-adapter" }
 regex = "1.13.1"
+dbt-antlr4 = "2.0.2"
+

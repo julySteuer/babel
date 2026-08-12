@@ -1,1 +1,5 @@
 /target
+
+
+crates/babel-translators/src/antlr/generated
+crates/babel-translators/antlr
