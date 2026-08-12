@@ -24,8 +24,8 @@ pub struct NautilusDecoder {
 }
 
 impl babel_adapter::BabelDecoder for NautilusDecoder {
-    fn name() -> String {
-        "nautilus".to_string()
+    fn name() -> &'static str {
+        "nautilus"
     }
 
     fn decode(to_decode: babel_ir::model::BabelIr) -> String {

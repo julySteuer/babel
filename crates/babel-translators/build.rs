@@ -56,6 +56,7 @@ fn main() {
         .unwrap();
     // move generted rust
     copy_rust();
+    generate_mod_rs();
 }
 
 fn install_from_url(url: &str, path: &str) {
@@ -88,6 +89,24 @@ fn copy_rust() {
         .filter(|path| path.extension().is_some_and(|ext| ext == "rs"))
         .for_each(|path| {
             let dest = Path::new(GENERATED_ANTLR_PATH).join(path.file_name().unwrap());
-            fs::rename(&path, dest).unwrap();
+            fs::rename(&path, dest).unwrap(); // Only works on the same drive but ez
         });
+}
+
+fn generate_mod_rs() {
+    let mut files: Vec<_> = fs::read_dir(GENERATED_ANTLR_PATH)
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|f| f.path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "rs"))
+        .filter_map(|path| path.file_name().map(|n| n.to_str().unwrap().to_string()))
+        .collect();
+    files.sort();
+
+    let contents: String = files
+        .iter()
+        .map(|name| format!("include!(\"{name}\");\n"))
+        .collect();
+
+    fs::write(format!("{GENERATED_ANTLR_PATH}/mod.rs"), contents).unwrap();
 }

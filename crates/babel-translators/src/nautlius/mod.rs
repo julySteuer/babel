@@ -464,7 +464,7 @@ ctx.rule(u'IDENTIFIER',u'__call')
 ctx.rule(u'IDENTIFIER',u'__tostring')
 ";
 
-        let encoded = encoder::NautilusEncoder::encode(test_str.to_string());
+        let encoded = encoder::NautilusEncoder::encode(test_str);
         let decoded = decoder::NautilusDecoder::decode(encoded);
 
         assert_eq!(decoded.split("\n").collect::<Vec<&str>>().len(), test_str.split("\n").collect::<Vec<&str>>().len());

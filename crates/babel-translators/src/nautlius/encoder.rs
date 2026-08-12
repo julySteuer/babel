@@ -22,11 +22,11 @@ pub struct NautilusEncoder {
 }
 
 impl babel_adapter::BabelEncoder for NautilusEncoder {
-    fn name() -> String {
-        "nautilus".to_string()
+    fn name() -> &'static str {
+        "nautilus"
     }
 
-    fn encode(to_encode: String) -> BabelIr { // Make throing errors possible 
+    fn encode(to_encode: &str) -> BabelIr { // Make throing errors possible 
         let lines: Vec<&str> = to_encode.split("\n").collect();
         let mut builder = BabelIrBuilder::new(); 
 
@@ -49,7 +49,7 @@ use crate::nautlius::encoder::NautilusEncoder;
     #[test]
     fn test_simple_nautilus_string() {
         let test_str = "ctx.rule(u\"START\", u\"{A}b\") \n ctx.rule(u\"A\", u\"a\")";
-        let res = NautilusEncoder::encode(test_str.to_string());
+        let res = NautilusEncoder::encode(test_str);
 
         assert_eq!(res.0.len(), 2);
         assert_eq!(res.0.get(0).unwrap().name, "START".to_string()); // Seems like the Map order is flaky
@@ -59,7 +59,7 @@ use crate::nautlius::encoder::NautilusEncoder;
     #[test]
     fn test_with_blocks() {
         let test_str = "ctx.rule(u\"START\", u\"{A}b|c\") \n ctx.rule(u\"A\", u\"a\")";
-        let res = NautilusEncoder::encode(test_str.to_string());
+        let res = NautilusEncoder::encode(test_str);
 
         assert_eq!(res.0.len(), 2);
         assert_eq!(res.0.get(0).unwrap().rhs.len(), 2);
@@ -71,7 +71,7 @@ use crate::nautlius::encoder::NautilusEncoder;
     fn test_with_line_break() {
         let test_str = "ctx.rule(u'FUNCTION',u'{FUNCDEF} ({FUNCTION_ARGS}) {PROGRAM}\\nend')";
         
-        let res = NautilusEncoder::encode(test_str.to_string());
+        let res = NautilusEncoder::encode(test_str);
         assert_eq!(res.0.len(), 1);
     }
 
@@ -532,7 +532,7 @@ ctx.rule(u'IDENTIFIER',u'__call')
 ctx.rule(u'IDENTIFIER',u'__tostring')
 ";
 
-        let result = NautilusEncoder::encode(test_str.to_string());
+        let result = NautilusEncoder::encode(test_str);
         println!("{}", result.0.len());
         assert_ne!(result.0.len(), 453);
     }
