@@ -21,12 +21,8 @@ pub struct NautilusEncoder {
 
 }
 
-impl babel_adapter::BabelEncoder for NautilusEncoder {
-    fn name() -> &'static str {
-        "nautilus"
-    }
-
-    fn encode(to_encode: &str) -> BabelIr { // Make throing errors possible 
+impl NautilusEncoder {
+    pub fn encode(to_encode: &str) -> BabelIr { // Make throing errors possible 
         let lines: Vec<&str> = to_encode.split("\n").collect();
         let mut builder = BabelIrBuilder::new(); 
 
@@ -41,8 +37,6 @@ impl babel_adapter::BabelEncoder for NautilusEncoder {
 #[cfg(test)]
 mod test_encoder {
     use std::ptr::read_unaligned;
-
-use babel_adapter::BabelEncoder;
 
 use crate::nautlius::encoder::NautilusEncoder;
 

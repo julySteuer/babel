@@ -23,12 +23,8 @@ pub struct NautilusDecoder {
 
 }
 
-impl babel_adapter::BabelDecoder for NautilusDecoder {
-    fn name() -> &'static str {
-        "nautilus"
-    }
-
-    fn decode(to_decode: babel_ir::model::BabelIr) -> String {
+impl NautilusDecoder {
+    pub fn decode(to_decode: babel_ir::model::BabelIr) -> String {
         let productions = to_decode.0;
         productions.into_iter().map(map_babel_production_to_string).collect()
     }
@@ -36,7 +32,6 @@ impl babel_adapter::BabelDecoder for NautilusDecoder {
 
 #[cfg(test)]
 mod test_decoder {
-    use babel_adapter::BabelDecoder;
 use babel_ir::model::{BabelBlock, BabelIr, BabelProduction, BabelSymbol::Terminal};
 
 use crate::nautlius::decoder::NautilusDecoder;

@@ -68,13 +68,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "babel-adapter"
-version = "0.1.0"
-dependencies = [
- "babel-ir",
-]
-
-[[package]]
 name = "babel-cli"
 version = "0.1.0"
 dependencies = [
@@ -92,14 +85,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "babel-merge"
-version = "0.1.0"
-
-[[package]]
 name = "babel-translators"
 version = "0.1.0"
 dependencies = [
- "babel-adapter",
  "babel-ir",
  "dbt-antlr4",
  "regex",

@@ -94,18 +94,19 @@ fn copy_rust() {
 }
 
 fn generate_mod_rs() {
-    let mut files: Vec<_> = fs::read_dir(GENERATED_ANTLR_PATH)
+    let mut modules: Vec<_> = fs::read_dir(GENERATED_ANTLR_PATH)
         .unwrap()
         .filter_map(Result::ok)
         .map(|f| f.path())
         .filter(|path| path.extension().is_some_and(|ext| ext == "rs"))
-        .filter_map(|path| path.file_name().map(|n| n.to_str().unwrap().to_string()))
+        .filter_map(|path| path.file_stem().map(|s| s.to_str().unwrap().to_string()))
+        .filter(|stem| stem != "mod")
         .collect();
-    files.sort();
+    modules.sort();
 
-    let contents: String = files
+    let contents: String = modules
         .iter()
-        .map(|name| format!("include!(\"{name}\");\n"))
+        .map(|stem| format!("pub mod {stem};\n"))
         .collect();
 
     fs::write(format!("{GENERATED_ANTLR_PATH}/mod.rs"), contents).unwrap();

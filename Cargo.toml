@@ -1,3 +1,3 @@
 [workspace]
 resolver = "3"
-members = ["crates/babel-adapter","crates/babel-cli", "crates/babel-ir", "crates/babel-merge", "crates/babel-translators"]
+members = ["crates/babel-cli", "crates/babel-ir", "crates/babel-translators"]

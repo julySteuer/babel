@@ -3,7 +3,6 @@ pub mod encoder;
 
 #[cfg(test)]
 mod encoder_decoder_test {
-    use babel_adapter::{BabelDecoder, BabelEncoder};
 
 use crate::nautlius::{decoder, encoder};
 
