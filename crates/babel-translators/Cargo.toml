@@ -6,5 +6,5 @@ edition = "2024"
 [dependencies]
 babel-ir = { path = "../babel-ir" }
 regex = "1.13.1"
-dbt-antlr4 = "2.0.2"
+antlr-rust = "0.3.0-beta"
 

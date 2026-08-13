@@ -4,7 +4,7 @@ use std::{
     process::Command,
 };
 
-const ANTLR_DOWNLOAD_URL: &str = "https://github.com/sdf-labs/antlr4/releases/download/dbt-antlr4-2.0.2/dbt-antlr4-2.0.2-complete.jar"; // Make version better
+const ANTLR_DOWNLOAD_URL: &str = "https://github.com/rrevenantt/antlr4rust/releases/download/antlr4-4.8-2-Rust0.3.0-beta/antlr4-4.8-2-SNAPSHOT-complete.jar";
 const ANTLR_BASE_PATH: &str = "antlr/";
 const ANTLR_DOWNLOAD_NAME: &str = "antlr.jar";
 const ANTLR_GRAMMAR_URL_BASE: &str =
@@ -25,6 +25,7 @@ fn main() {
     create_dir_all(&ANTLR_BASE_PATH).unwrap();
     install_antlr_jar(&antlr_path);
     install_antlr_grammar();
+    patch_grammar_actions();
     Command::new("java")
         .args([
             "-jar",
@@ -80,7 +81,19 @@ fn install_antlr_jar(antlr_path: &str) {
     install_from_url(ANTLR_DOWNLOAD_URL, antlr_path);
 }
 
+// Hack to remove hardcoded Java Calls which breaks when compiling
+fn patch_grammar_actions() {
+    for path in [ANTLR_LEXER, ANTLR_PARSER] {
+        let contents = fs::read_to_string(path).unwrap();
+        let patched = contents
+            .replace("{ this.handleBeginArgument(); }", "")
+            .replace("{ this.handleEndArgument(); }", "");
+        fs::write(path, patched).unwrap();
+    }
+}
+
 fn copy_rust() {
+    let _ = fs::remove_dir_all(GENERATED_ANTLR_PATH);
     create_dir_all(GENERATED_ANTLR_PATH).unwrap();
     fs::read_dir("antlr/generated")
         .unwrap()

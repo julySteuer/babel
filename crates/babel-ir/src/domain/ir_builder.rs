@@ -5,6 +5,7 @@ use crate::model::{
     Symbols,
 };
 
+// Rewrite this builder to run on JSON. Its easier to parse and i dont have to fuck around with parsing smoke tests
 pub struct BabelIrBuilder {
     nonterms: HashMap<String, ProductionRule>,
     order: Vec<String>
