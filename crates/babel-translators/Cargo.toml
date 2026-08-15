@@ -1,9 +1,0 @@
-[package]
-name = "babel-translators"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-babel-ir = { path = "../babel-ir" }
-babel-adapter = { path = "../babel-adapter" }
-regex = "1.13.1"
