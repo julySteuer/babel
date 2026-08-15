@@ -12,10 +12,13 @@ const ANTLR_GRAMMAR_URL_BASE: &str =
 const ANTLR_PARSER: &str = "antlr/ANTLRv4Parser.g4";
 const ANTLR_LEXER: &str = "antlr/ANTLRv4Lexer.g4";
 const GENERATED_ANTLR_PATH: &str = "src/antlr/generated";
+const LEXER_ADAPTOR_PATH: &str = "lexer_adaptor.rs";
+const LEXER_GRAMMAR_DECL: &str = "lexer grammar ANTLRv4Lexer;";
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/");
+    println!("cargo:rerun-if-changed={LEXER_ADAPTOR_PATH}");
     let antlr_path = format!("{}{}", ANTLR_BASE_PATH, ANTLR_DOWNLOAD_NAME);
     if Path::new(&antlr_path).exists() {
         println!("cargo:warning=antlr/ found");
@@ -25,7 +28,7 @@ fn main() {
     create_dir_all(&ANTLR_BASE_PATH).unwrap();
     install_antlr_jar(&antlr_path);
     install_antlr_grammar();
-    patch_grammar_actions();
+    inject_lexer_adaptor();
     Command::new("java")
         .args([
             "-jar",
@@ -81,15 +84,43 @@ fn install_antlr_jar(antlr_path: &str) {
     install_from_url(ANTLR_DOWNLOAD_URL, antlr_path);
 }
 
-// Hack to remove hardcoded Java Calls which breaks when compiling
-fn patch_grammar_actions() {
-    for path in [ANTLR_LEXER, ANTLR_PARSER] {
-        let contents = fs::read_to_string(path).unwrap();
-        let patched = contents
-            .replace("{ this.handleBeginArgument(); }", "")
-            .replace("{ this.handleEndArgument(); }", "");
-        fs::write(path, patched).unwrap();
-    }
+fn inject_lexer_adaptor() {
+    let adaptor_src = fs::read_to_string(LEXER_ADAPTOR_PATH).unwrap();
+    let fields = read_adaptor_section(&adaptor_src, "fields");
+    let init = read_adaptor_section(&adaptor_src, "init");
+    let members = read_adaptor_section(&adaptor_src, "members");
+    let extend = read_adaptor_section(&adaptor_src, "extend");
+
+    let named_actions = format!(
+        "\n@fields {{\n{fields}\n}}\n@init {{\n{init}\n}}\n@members {{\n{members}\n}}\n@extend {{\n{extend}\n}}\n"
+    );
+
+    let contents = fs::read_to_string(ANTLR_LEXER).unwrap();
+    let contents = contents.replace(
+        LEXER_GRAMMAR_DECL,
+        &format!("{LEXER_GRAMMAR_DECL}\n{named_actions}"),
+    );
+    let contents = contents
+        .replace(
+            "{ this.handleBeginArgument(); }",
+            "{ if recog.in_lexer_rule() { recog.push_mode(LexerCharSet); recog.more(); } else { recog.push_mode(Argument); } }",
+        )
+        .replace(
+            "{ this.handleEndArgument(); }",
+            "{ recog.pop_mode(); if !recog.mode_stack.is_empty() { recog.set_type(ARGUMENT_CONTENT); } }",
+        );
+    fs::write(ANTLR_LEXER, contents).unwrap();
+}
+
+fn read_adaptor_section(source: &str, name: &str) -> String {
+    let marker = format!("//>>{name}\n");
+    let start = source
+        .find(&marker)
+        .unwrap_or_else(|| panic!("lexer_adaptor.rs: missing //>>{name} section"))
+        + marker.len();
+    let rest = &source[start..];
+    let end = rest.find("//>>").unwrap_or(rest.len());
+    rest[..end].trim().to_string()
 }
 
 fn copy_rust() {
