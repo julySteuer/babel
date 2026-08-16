@@ -1,0 +1,24 @@
+[project]
+name = "babel-cli"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "julySteuer", email = "xghostx2709@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "babel-translators",
+    "babel-infra"
+]
+
+[tool.uv.sources]
+babel-translators = { workspace = true }
+babel-infra = { workspace = true }
+
+[project.scripts]
+babel-cli = "babel_cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"
