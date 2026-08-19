@@ -8,13 +8,11 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "babel-translators",
-    "babel-infra"
+    "babel-antlr"
 ]
 
 [tool.uv.sources]
-babel-translators = { workspace = true }
-babel-infra = { workspace = true }
+babel-antlr = { workspace = true }
 
 [project.scripts]
 babel-cli = "babel_cli:main"
