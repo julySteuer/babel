@@ -4,7 +4,7 @@ from babel_cli.cli_handler import handle_cli
 
 
 def main() -> None:
-    parser = ArgumentParser(description="Tranlsation tool for AntlrV4 Grammar")
+    parser = ArgumentParser(description="Translation tool for AntlrV4 Grammar")
     parser.add_argument("mode", choices=["translate"])
     parser.add_argument(
         "-i", "--input", help="AntlrV4 input files", nargs="+", type=str
