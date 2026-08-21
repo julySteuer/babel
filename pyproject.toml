@@ -24,4 +24,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["packages/babel-cli/src"]
+packages = ["packages/*", "translators/*"]
+
+[project.scripts]
+babel-cli = "babel_cli:main"
