@@ -2,18 +2,6 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-"""
-BabelIr
-└── production_rules: list[BabelProduction]
-    └── production: list[BabelBlock]
-        └── atoms: list[BabelAtom]
-            ├── BabelNonterminal
-            ├── BabelOptional (contains atom: BabelAtom)
-            └── BabelTerminal
-                ├── BabelSymbol
-                ├── BabelCharRange
-                └── BabelNumRange
-"""
 
 
 class BabelAtom(ABC):
@@ -37,6 +25,14 @@ class BabelNonterminal(BabelAtom):
 @dataclass
 class BabelOptional(BabelAtom):
     atom: BabelAtom  # Change this to aceppt block like structure
+
+@dataclass
+class BabelStar(BabelAtom):
+    atom: BabelAtom
+
+@dataclass
+class BabelPlus(BabelAtom):
+    atom: BabelAtom
 
 
 RangeType = TypeVar("RangeType")
