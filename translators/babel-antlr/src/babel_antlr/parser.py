@@ -12,6 +12,8 @@ from babel_ir.model import (
     BabelSymbol,
     BabelCharRange,
     BabelWildcard,
+    BabelBlockList,
+    BabelTerminal,
 )
 
 
@@ -22,24 +24,21 @@ def _encode_labeled_element(
     print("No luck")
     pass
 
-def _encode_enbf(ebnf: ANTLRv4Parser.EbnfContext) -> BabelAtom:
+def _encode_ebnf(ebnf: ANTLRv4Parser.EbnfContext) -> BabelAtom:
     block = ebnf.block()
 
-    # This is same as _encode_blocks. Have to remake Model Structure
-    inner = BabelBlock(list(map(lambda alternative: _encode_element(alternative.element()), block.altList().alternative()))) # Parse this to a BabelBlockSet so inline Options
-    # Pooks like a preety common idiom might make util for it
+    inner = BabelBlockList(list(map(_encode_alternative, block.altList().alternative()))) # Parse this to a BabelBlockSet so inline Options
     if ebnf.blockSuffix() is not None:
         suffix = ebnf.blockSuffix().ebnfSuffix()
         return _encode_ebnf_suffix_with_inner(suffix, inner)
     return inner
 
-def _encode_terminal_def(terminal_def: ANTLRv4Parser.TerminalDefContext) -> BabelSymbol:
-    content = (
-        terminal_def.TOKEN_REF()
+def _encode_terminal_def(terminal_def: ANTLRv4Parser.TerminalDefContext) -> BabelAtom:
+    return (
+        BabelNonterminal(terminal_def.TOKEN_REF().getText())
         if terminal_def.TOKEN_REF() is not None
-        else terminal_def.STRING_LITERAL()
+        else BabelSymbol(terminal_def.STRING_LITERAL().getText())
     )
-    return BabelSymbol(content)
 
 
 def _encode_ruleref(ruleref: ANTLRv4Parser.RulerefContext) -> BabelNonterminal:
@@ -62,7 +61,7 @@ def _encode_set_element(set_element: ANTLRv4Parser.SetElementContext) -> BabelAt
     lexer_char_set = set_element.LEXER_CHAR_SET()
 
     return exec_first_valid(
-        (token_ref, lambda ref: BabelSymbol(ref)), # TODO: Rename Symbol to something that suggests one or more characters
+        (token_ref, lambda ref: BabelNonterminal(ref)), # TODO: Rename Symbol to something that suggests one or more characters
         (string_literal, lambda lit: BabelSymbol(lit)),
         (char_range, _encode_character_range),
         (lexer_char_set, lambda lcs: BabelSymbol(lexer_char_set))
@@ -94,15 +93,11 @@ def _encode_wildcard() -> BabelWildcard:
 def _encode_ebnf_suffix_with_inner(
     ebnf_suffix: ANTLRv4Parser.EbnfSuffixContext, inner: BabelAtom
 ) -> BabelAtom:
-    first_layer = exec_first_valid(
-        (ebnf_suffix.QUESTION(0), lambda _: BabelOptional(inner)),
+    return exec_first_valid(
         (ebnf_suffix.PLUS(), lambda _: BabelPlus(inner)),
         (ebnf_suffix.STAR(), lambda _: BabelStar(inner)),
+        (ebnf_suffix.QUESTION(0), lambda _: BabelOptional(inner)), # Only if all fail check if one question mark was set (weird way to check i know)
     )
-
-    if ebnf_suffix.QUESTION() is not None:  # TODO: Make this wrap correctly
-        return BabelOptional(first_layer)
-    return first_layer
 
 
 def _encode_atom(
@@ -126,8 +121,6 @@ def _encode_atom(
 
 
 def _encode_element(element: ANTLRv4Parser.ElementContext) -> BabelAtom: # Have to rethink if this is a good idea to return a Atom at this stage
-    if isinstance(element, list):
-        element = element[0] # Weird thing that tends to happen
     labeled_element = element.labeledElement()
     atom = element.atom()
     ebnf = element.ebnf()
@@ -138,16 +131,14 @@ def _encode_element(element: ANTLRv4Parser.ElementContext) -> BabelAtom: # Have 
     return exec_first_valid(
         (atom, lambda at: _encode_atom(at, ebnf_suffix_opt)),
         (labeled_element, lambda le: _encode_labeled_element(le, ebnf_suffix_opt)),
-        (ebnf, _encode_enbf),
+        (ebnf, _encode_ebnf),
     )
 
+def _encode_alternative(alternative: ANTLRv4Parser.AlternativeContext) -> BabelBlock:
+    return BabelBlock(list(map(lambda elem: _encode_element(elem), alternative.element())))
 
 def _encode_labeled_alt(alt: ANTLRv4Parser.LabeledAltContext) -> BabelBlock:
-    print(alt.getText())
-    return BabelBlock(
-        list(map(lambda elem: _encode_element(elem), alt.alternative().element()))
-    )
-
+    return _encode_alternative(alt.alternative())
 
 def _encode_alt_list(alt_list: ANTLRv4Parser.RuleAltListContext) -> list[BabelBlock]:
     return list(
@@ -159,4 +150,4 @@ def encode_parser_rule(
     parser_rule: ANTLRv4Parser.ParserRuleSpecContext,
 ) -> tuple[str, BabelProduction]:
     name = parser_rule.RULE_REF()  # Lets hope this casts to a string
-    return name, BabelProduction(_encode_alt_list(parser_rule.ruleBlock().ruleAltList()))
+    return name, BabelProduction(BabelBlockList(_encode_alt_list(parser_rule.ruleBlock().ruleAltList())))

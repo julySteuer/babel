@@ -66,10 +66,13 @@ class BabelNumRange(BabelRange[int]):
 class BabelBlock(BabelAtom):  # block1 | block2 | block3
     atoms: list[BabelAtom]
 
+@dataclass
+class BabelBlockList(BabelAtom):
+    opts: list[BabelBlock]
 
 @dataclass
 class BabelProduction:
-    production: list[BabelBlock]
+    production: BabelBlockList
 
 
 @dataclass
