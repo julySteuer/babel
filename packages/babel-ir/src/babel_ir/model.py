@@ -34,6 +34,14 @@ class BabelStar(BabelAtom):
 class BabelPlus(BabelAtom):
     atom: BabelAtom
 
+@dataclass
+class BabelNot(BabelAtom):
+    atom: BabelAtom
+
+@dataclass
+class BabelWildcard(BabelAtom):
+    pass
+
 
 RangeType = TypeVar("RangeType")
 
@@ -55,7 +63,7 @@ class BabelNumRange(BabelRange[int]):
 
 
 @dataclass
-class BabelBlock:  # block1 | block2 | block3
+class BabelBlock(BabelAtom):  # block1 | block2 | block3
     atoms: list[BabelAtom]
 
 

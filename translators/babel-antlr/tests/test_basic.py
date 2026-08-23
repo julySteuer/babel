@@ -14,9 +14,6 @@ expr: expr ('*'|'/') expr   # MulDiv
 ruleAltList
     : labeledAlt (OR labeledAlt)*
     ;
-
-INT: [0-9]+ ;
-WS: [ \t\r\n]+ -> skip ;
     """
 
     encode(test_str)
