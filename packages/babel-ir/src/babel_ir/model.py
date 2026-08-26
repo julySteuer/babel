@@ -1,7 +1,6 @@
 from abc import ABC
 from dataclasses import dataclass
-from typing import Generic, TypeVar
-
+from typing import TypeVar
 
 
 class BabelAtom(ABC):
@@ -47,7 +46,7 @@ RangeType = TypeVar("RangeType")
 
 
 @dataclass
-class BabelRange(BabelTerminal, ABC, Generic[RangeType]):
+class BabelRange[RangeType](BabelTerminal, ABC):
     beginning: RangeType
     end: RangeType
 

@@ -3,10 +3,11 @@
 {
 	"name": "Python 3",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "mcr.microsoft.com/devcontainers/python:2-3.14-trixie",
+	"image": "ghcr.io/astral-sh/uv:python3.13-trixie-slim",
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
+      "ghcr.io/devcontainers/features/common-utils:2": {},
       "ghcr.io/devcontainers/features/java": {}
     },
 
@@ -14,7 +15,13 @@
 	// "forwardPorts": [],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "pip3 install --user -r requirements.txt",
+	"postCreateCommand": "uv sync",
+
+	// Pin the ANTLR version so antlr4-tools skips its (currently broken/flaky) online
+	// "latest version" lookup against search.maven.org / central.sonatype.com.
+	"containerEnv": {
+		"ANTLR4_TOOLS_ANTLR_VERSION": "4.13.1"
+	},
 
 	// Configure tool-specific properties.
   "customizations" : {

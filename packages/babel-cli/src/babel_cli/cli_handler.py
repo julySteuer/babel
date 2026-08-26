@@ -1,5 +1,6 @@
 from babel_antlr.encoder import encode
 
+
 def _handle_translate(inp: list[str] | None, output: str | None) -> None:
     if inp is None or output is None:
         return
