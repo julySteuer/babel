@@ -1,8 +1,0 @@
-alphanum      = _{ 'a'..'z' | 'A'..'Z' | ASCII_DIGIT | "_" }
-nonterm_scope = _{ "*" }
-WORD          =  { alphanum* }
-NONTERM       =  { nonterm_scope ~ WORD ~ nonterm_scope }
-ESCAPE        =  { "\\" }
-TERM          = @{ ANY | ESCAPE ~ ANY | " "}
-OR           =  { "|" }
-RHS           =  { (NONTERM | TERM | OR)* }

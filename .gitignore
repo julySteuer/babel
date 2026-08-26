@@ -1,1 +1,6 @@
-/target
+__pycache__
+_generated
+.venv
+dist
+gen
+.idea
