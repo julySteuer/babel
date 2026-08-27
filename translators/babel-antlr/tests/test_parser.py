@@ -198,16 +198,6 @@ def test_plus_suffix():
     )
 
 
-# ---------------------------------------------------------------------------
-# Known bugs — these encode the *intended* result so the suite starts
-# failing loudly (xfail -> unexpected pass) the moment each gets fixed.
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="_encode_labeled_element (parser.py) is unimplemented (`print('No luck'); pass`) and returns None.",
-)
 def test_labeled_element_is_encoded():
     production = _encode_rule("r: x=INT ;")
     assert production == BabelProduction(BabelBlockList([BabelBlock([BabelNonterminal("INT")])]))

@@ -33,3 +33,6 @@ babel-cli = "babel_cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["packages", "translators"]
+
+[tool.pyright]
+exclude = ["**/_generated/**", "**/.venv/**"]
