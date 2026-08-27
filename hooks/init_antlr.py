@@ -13,6 +13,9 @@ class InitAntlrOnStartHook(BuildHookInterface):
         base_antlr4_download_path = Path(
             Path(self.root) / "translators" / "babel-antlr" / "src" / "babel_antlr" / "_generated"
         )
+        if base_antlr4_download_path.exists():
+            print("Skipping download and regeneration phase. When Rebuild requires re pulling delete the _generated directory from babel_antlr")
+            return
 
         antlrv4_lexer_grammar_file = "ANTLRv4Lexer.g4"
         antlrv4_parser_grammar_file = "ANTLRv4Parser.g4"

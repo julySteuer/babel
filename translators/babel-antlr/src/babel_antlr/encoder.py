@@ -2,8 +2,8 @@ from antlr4 import CommonTokenStream
 from antlr4.InputStream import InputStream
 from babel_antlr._generated.ANTLRv4Lexer import ANTLRv4Lexer
 from babel_antlr._generated.ANTLRv4Parser import ANTLRv4Parser
-from babel_antlr.lexer import encode_lexer_rule
-from babel_antlr.parser import encode_parser_rule
+from babel_antlr.lexer_encoder import encode_lexer_rule
+from babel_antlr.parser_encoder import encode_parser_rule
 from babel_antlr.util import exec_first_valid
 from babel_ir.model import BabelIr, BabelProduction
 
