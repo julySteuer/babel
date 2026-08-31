@@ -13,6 +13,7 @@ class InitAntlrOnStartHook(BuildHookInterface):
         base_antlr4_download_path = Path(
             Path(self.root) / "translators" / "babel-antlr" / "src" / "babel_antlr" / "_generated"
         )
+        # TODO: Add A Environment Variable to trigger rebuild
         if base_antlr4_download_path.exists():
             print("Skipping download and regeneration phase. When Rebuild requires re pulling delete the _generated directory from babel_antlr")
             return

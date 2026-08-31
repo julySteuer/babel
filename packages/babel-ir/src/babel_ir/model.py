@@ -41,10 +41,6 @@ class BabelNot(BabelAtom):
 class BabelWildcard(BabelAtom):
     pass
 
-
-RangeType = TypeVar("RangeType")
-
-
 @dataclass
 class BabelRange[RangeType](BabelTerminal, ABC):
     beginning: RangeType
