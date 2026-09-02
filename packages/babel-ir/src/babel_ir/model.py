@@ -56,7 +56,7 @@ class BabelCharRange(BabelRange[str]):
 class BabelNumRange(BabelRange[int]):
     pass
 
-
+# This should propably not be an atom. Tis from earliere TODO: Remove
 @dataclass
 class BabelBlock(BabelAtom):  # block1 | block2 | block3
     atoms: list[BabelAtom]

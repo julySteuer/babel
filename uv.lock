@@ -1,6 +1,6 @@
 version = 1
 revision = 3
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 
 [manifest]
 members = [
@@ -8,6 +8,7 @@ members = [
     "babel-antlr",
     "babel-cli",
     "babel-ir",
+    "babel-nautilus",
 ]
 
 [[package]]
@@ -92,6 +93,17 @@ requires-dist = [{ name = "babel-antlr", editable = "translators/babel-antlr" }]
 name = "babel-ir"
 version = "0.1.0"
 source = { editable = "packages/babel-ir" }
+
+[[package]]
+name = "babel-nautilus"
+version = "0.1.0"
+source = { editable = "translators/babel-nautilus" }
+dependencies = [
+    { name = "babel-ir" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "babel-ir", editable = "packages/babel-ir" }]
 
 [[package]]
 name = "colorama"
