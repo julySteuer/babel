@@ -118,3 +118,5 @@ def decode_ir(ir: BabelIr) -> list[NautilusExpr]:
     return [
         _make_rule(k, v.production) for k,v in ir.production_rules.items()
     ]
+
+__all__ = ['decode_ir']

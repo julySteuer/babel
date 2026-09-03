@@ -105,11 +105,20 @@ def _decode_expression(nautilus_expr: NautilusExpr) -> tuple[Atom, list[Rule]]:
         _decode_block(block, name) for block in nautilus_expr.options
     ]
 
+    block_data = [
+        block[0] for block in blocks
+    ]
+
+    inner_rule = Rule(
+        name,
+        block_data
+    )
+
     child_rules = _flatten([
         block[1] for block in blocks
     ])
 
-    return NonterminalAtom(name), child_rules
+    return NonterminalAtom(name), child_rules + [inner_rule]
 
 
 def decode_to_rules(nautilus_expressions: list[NautilusExpr]) -> list[Rule]:

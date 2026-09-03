@@ -33,88 +33,80 @@ def _single_block_expr(name: str, *atoms) -> NautilusExpr:
 # --- decode_to_rules (public API) ---------------------------------------
 
 
-def test_pure_terminal_and_nonterminal_block_generates_no_rules():
+def test_terminal_and_nonterminal_block_becomes_a_single_rule_block():
     expr = _single_block_expr("foo", NautilusTerminal("a"), NautilusNonterminal("BAR"))
 
-    assert decode_to_rules([expr]) == []
+    assert decode_to_rules([expr]) == [Rule("foo", [RuleBlock("a<BAR>")])]
 
 
-def test_pure_regex_block_is_merged_without_generating_a_rule():
+def test_pure_regex_block_becomes_a_regex_rule():
     expr = _single_block_expr("foo", NautilusRegex("[a-z]"), NautilusRegex("[0-9]"))
 
-    assert decode_to_rules([expr]) == []
+    assert decode_to_rules([expr]) == [Rule("foo", [RegexBlock("[a-z][0-9]")])]
 
 
-def test_expression_itself_never_becomes_a_rule():
-    # Known gap in the current rewrite (see git log: "Will rework due to DS not
-    # working so well"): _decode_expression only returns the *child* rules it
-    # collects, never a Rule for the NautilusExpr being decoded. So even a
-    # non-trivial top-level expression produces nothing on its own.
-    expr = _single_block_expr("foo", NautilusTerminal("a"), NautilusNonterminal("BAR"))
+def test_empty_block_becomes_an_empty_regex_rule():
+    # all(...) over an empty iterable is vacuously True, so an epsilon block
+    # (e.g. the base case of an optional/star desugaring) is classified as a
+    # "pure regex" block with empty content.
+    expr = _single_block_expr("foo")
 
-    assert decode_to_rules([expr]) == []
+    assert decode_to_rules([expr]) == [Rule("foo", [RegexBlock("")])]
 
 
-def test_regex_atom_in_a_mixed_block_is_extracted_into_its_own_rule():
+def test_multiple_options_produce_one_rule_with_one_block_per_option():
+    expr = NautilusExpr(
+        "outer",
+        options=[
+            NautilusBlock([NautilusTerminal("a")]),
+            NautilusBlock([NautilusTerminal("b")]),
+        ],
+    )
+
+    assert decode_to_rules([expr]) == [
+        Rule("outer", [RuleBlock("a"), RuleBlock("b")])
+    ]
+
+
+def test_regex_atom_in_a_mixed_block_is_extracted_into_a_rule_before_its_parent():
     # A block only collapses to a single RegexBlock if *every* atom is regex.
     # Once it's mixed with a terminal/nonterminal, each regex atom is pulled
-    # out into its own generated Rule. This only surfaces through
-    # decode_to_rules when the mixed block lives inside a nested expression,
-    # since a top-level expression's own rule is otherwise discarded.
-    inner = _single_block_expr("inner", NautilusTerminal("a"), NautilusRegex("[0-9]"))
-    outer = _single_block_expr("outer", NautilusTerminal("x"), inner)
+    # out into its own generated Rule, which is emitted before the rule that
+    # references it.
+    expr = _single_block_expr("foo", NautilusTerminal("a"), NautilusRegex("[a-z]"))
 
-    assert decode_to_rules([outer]) == [
-        Rule("inner_0__GENERATED", [RegexBlock("[0-9]")]),
+    assert decode_to_rules([expr]) == [
+        Rule("foo_0__GENERATED", [RegexBlock("[a-z]")]),
+        Rule("foo", [RuleBlock("a<foo_0__GENERATED>")]),
     ]
 
 
 def test_each_regex_atom_in_a_mixed_block_gets_its_own_sequential_rule():
-    inner = _single_block_expr(
-        "inner", NautilusTerminal("a"), NautilusRegex("[0-9]"), NautilusRegex("[a-z]")
+    expr = _single_block_expr(
+        "foo", NautilusTerminal("a"), NautilusRegex("[0-9]"), NautilusRegex("[a-z]")
     )
-    outer = _single_block_expr("outer", inner)
+
+    assert decode_to_rules([expr]) == [
+        Rule("foo_0__GENERATED", [RegexBlock("[0-9]")]),
+        Rule("foo_1__GENERATED", [RegexBlock("[a-z]")]),
+        Rule("foo", [RuleBlock("a<foo_0__GENERATED><foo_1__GENERATED>")]),
+    ]
+
+
+def test_nested_expression_produces_its_own_rule_referenced_by_bare_name():
+    # Unlike a real NautilusNonterminal, a nested NautilusExpr atom decodes to
+    # a bare-name reference with no surrounding "<...>" - an asymmetry in the
+    # current implementation worth locking down.
+    inner = _single_block_expr("inner", NautilusTerminal("a"))
+    outer = _single_block_expr("outer", NautilusTerminal("x"), inner)
 
     assert decode_to_rules([outer]) == [
-        Rule("inner_0__GENERATED", [RegexBlock("[0-9]")]),
-        Rule("inner_1__GENERATED", [RegexBlock("[a-z]")]),
+        Rule("inner", [RuleBlock("a")]),
+        Rule("outer", [RuleBlock("xinner")]),
     ]
 
 
-def test_generated_names_are_scoped_per_parent_expression_name():
-    inner_foo = _single_block_expr("foo", NautilusTerminal("a"), NautilusRegex("[0-9]"))
-    inner_bar = _single_block_expr("bar", NautilusTerminal("b"), NautilusRegex("[a-z]"))
-    outer_foo = _single_block_expr("outer_foo", inner_foo)
-    outer_bar = _single_block_expr("outer_bar", inner_bar)
-
-    result = decode_to_rules([outer_foo, outer_bar])
-
-    assert result == [
-        Rule("foo_0__GENERATED", [RegexBlock("[0-9]")]),
-        Rule("bar_0__GENERATED", [RegexBlock("[a-z]")]),
-    ]
-
-
-def test_rules_from_every_option_are_flattened_in_order():
-    inner_a = _single_block_expr("a_opt", NautilusTerminal("a"), NautilusRegex("[0-9]"))
-    inner_b = _single_block_expr("b_opt", NautilusTerminal("b"), NautilusRegex("[a-z]"))
-    outer = NautilusExpr(
-        "outer",
-        options=[
-            NautilusBlock([inner_a]),
-            NautilusBlock([inner_b]),
-        ],
-    )
-
-    result = decode_to_rules([outer])
-
-    assert result == [
-        Rule("a_opt_0__GENERATED", [RegexBlock("[0-9]")]),
-        Rule("b_opt_0__GENERATED", [RegexBlock("[a-z]")]),
-    ]
-
-
-def test_rules_from_deeply_nested_expressions_are_all_collected():
+def test_rules_from_deeply_nested_expressions_are_collected_innermost_first():
     innermost = _single_block_expr(
         "innermost", NautilusTerminal("a"), NautilusRegex("[0-9]")
     )
@@ -123,6 +115,31 @@ def test_rules_from_deeply_nested_expressions_are_all_collected():
 
     assert decode_to_rules([outer]) == [
         Rule("innermost_0__GENERATED", [RegexBlock("[0-9]")]),
+        Rule("innermost", [RuleBlock("a<innermost_0__GENERATED>")]),
+        Rule("middle", [RuleBlock("binnermost")]),
+        Rule("outer", [RuleBlock("middle")]),
+    ]
+
+
+def test_generated_names_are_scoped_per_parent_expression_name():
+    foo = _single_block_expr("foo", NautilusTerminal("a"), NautilusRegex("[0-9]"))
+    bar = _single_block_expr("bar", NautilusTerminal("b"), NautilusRegex("[a-z]"))
+
+    assert decode_to_rules([foo, bar]) == [
+        Rule("foo_0__GENERATED", [RegexBlock("[0-9]")]),
+        Rule("foo", [RuleBlock("a<foo_0__GENERATED>")]),
+        Rule("bar_0__GENERATED", [RegexBlock("[a-z]")]),
+        Rule("bar", [RuleBlock("b<bar_0__GENERATED>")]),
+    ]
+
+
+def test_multiple_top_level_expressions_are_decoded_independently():
+    foo = _single_block_expr("foo", NautilusTerminal("a"))
+    bar = _single_block_expr("bar", NautilusTerminal("b"))
+
+    assert decode_to_rules([foo, bar]) == [
+        Rule("foo", [RuleBlock("a")]),
+        Rule("bar", [RuleBlock("b")]),
     ]
 
 
@@ -141,13 +158,13 @@ def test_decode_atom_regex():
     assert _decode_atom(NautilusRegex("[a-z]")) == (RegexAtom("[a-z]"), [])
 
 
-def test_decode_atom_nested_expression_does_not_wrap_name_in_brackets():
-    # Unlike a real NautilusNonterminal, a nested NautilusExpr atom decodes to
-    # a bare-name NonterminalAtom with no surrounding "<...>" — an asymmetry
-    # in the current implementation worth locking down.
+def test_decode_atom_nested_expression_returns_its_generated_rule():
     expr = _single_block_expr("inner", NautilusTerminal("a"))
 
-    assert _decode_atom(expr) == (NonterminalAtom("inner"), [])
+    assert _decode_atom(expr) == (
+        NonterminalAtom("inner"),
+        [Rule("inner", [RuleBlock("a")])],
+    )
 
 
 # --- _construct_block -----------------------------------------------------
