@@ -30,7 +30,8 @@ from babel_nautilus.name_generator import stateful_name_generator
 @pytest.fixture(autouse=True)
 def reset_name_generator():
     # The name generator is a process-wide singleton; give every test a clean slate
-    # so generated names ("foo0", "foo1", ...) don't depend on test execution order.
+    # so generated names ("foo_0__GENERATED", "foo_1__GENERATED", ...) don't depend
+    # on test execution order.
     stateful_name_generator.counter.clear()
 
 
@@ -92,7 +93,7 @@ def test_optional_desugars_to_epsilon_alternative():
                     [
                         NautilusTerminal("a"),
                         NautilusExpr(
-                            "foo0",
+                            "foo_0__GENERATED",
                             options=[
                                 NautilusBlock([NautilusTerminal("b")]),
                                 NautilusBlock([]),
@@ -117,10 +118,10 @@ def test_star_desugars_to_right_recursive_rule():
                 NautilusBlock(
                     [
                         NautilusExpr(
-                            "foo0",
+                            "foo_0__GENERATED",
                             options=[
                                 NautilusBlock(
-                                    [NautilusTerminal("a"), NautilusNonterminal("foo0")]
+                                    [NautilusTerminal("a"), NautilusNonterminal("foo_0__GENERATED")]
                                 ),
                                 NautilusBlock([]),
                             ],
@@ -144,10 +145,10 @@ def test_plus_desugars_to_recursive_rule_with_non_empty_base_case():
                 NautilusBlock(
                     [
                         NautilusExpr(
-                            "foo0",
+                            "foo_0__GENERATED",
                             options=[
                                 NautilusBlock(
-                                    [NautilusTerminal("a"), NautilusNonterminal("foo0")]
+                                    [NautilusTerminal("a"), NautilusNonterminal("foo_0__GENERATED")]
                                 ),
                                 NautilusBlock([NautilusTerminal("a")]),
                             ],
@@ -169,7 +170,7 @@ def test_not_over_char_range_negates_the_char_class():
             "foo",
             options=[
                 NautilusBlock(
-                    [NautilusExpr("foo0", options=[NautilusBlock([NautilusRegex("[^a-z]")])])]
+                    [NautilusExpr("foo_0__GENERATED", options=[NautilusBlock([NautilusRegex("[^a-z]")])])]
                 ),
             ],
         )
@@ -186,7 +187,7 @@ def test_not_over_symbol_negates_the_char_class():
             "foo",
             options=[
                 NautilusBlock(
-                    [NautilusExpr("foo0", options=[NautilusBlock([NautilusRegex("[^a]")])])]
+                    [NautilusExpr("foo_0__GENERATED", options=[NautilusBlock([NautilusRegex("[^a]")])])]
                 ),
             ],
         )
@@ -212,17 +213,17 @@ def test_nested_star_inside_optional_derives_names_from_parent_scope():
                 NautilusBlock(
                     [
                         NautilusExpr(
-                            "foo0",
+                            "foo_0__GENERATED",
                             options=[
                                 NautilusBlock(
                                     [
                                         NautilusExpr(
-                                            "foo00",
+                                            "foo_0__GENERATED_0__GENERATED",
                                             options=[
                                                 NautilusBlock(
                                                     [
                                                         NautilusTerminal("a"),
-                                                        NautilusNonterminal("foo00"),
+                                                        NautilusNonterminal("foo_0__GENERATED_0__GENERATED"),
                                                     ]
                                                 ),
                                                 NautilusBlock([]),
@@ -256,5 +257,5 @@ def test_multiple_rules_are_each_decoded_independently():
 
     assert [expr.name for expr in result] == ["foo", "bar"]
     # Synthetic names are scoped per parent rule name, so "foo" and "bar" each start at 0.
-    assert result[0].options[0].children[0].name == "foo0"
-    assert result[1].options[0].children[0].name == "bar0"
+    assert result[0].options[0].children[0].name == "foo_0__GENERATED"
+    assert result[1].options[0].children[0].name == "bar_0__GENERATED"

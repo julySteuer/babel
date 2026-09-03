@@ -4,100 +4,119 @@ from dataclasses import dataclass
 
 from babel_nautilus.model.nautilus_ir import NautilusExpr, NautilusBlock, NautilusAtom, NautilusNonterminal, \
     NautilusTerminal, NautilusRegex
-from babel_nautilus.model.rule import Rule, RuleMode
+from babel_nautilus.model.rule import (
+    Rule,
+    Block,
+    Atom,
+    TerminalAtom,
+    NonterminalAtom,
+    RegexAtom,
+    RegexBlock,
+    RuleBlock,
+)
 from babel_nautilus.name_generator import stateful_name_generator
 
-@dataclass
-class IntRule(ABC):
-    content: str
-
-@dataclass
-class IntRegexRule(IntRule):
-    pass
-
-@dataclass
-class IntTerminatingRule(IntRule):
-    pass
-
-def flatten[T](l: list[list[T]]) -> list[T]:
+def _flatten[T](l: list[list[T]]) -> list[T]:
     return list(itertools.chain(*l))
 
-# This seems scuffed. first element are all the children. the second one is the pipeline of all the previous rules. Always flat
-# list[str] -> atoms
-child_rule_return = tuple[Rule, list[Rule]]
-atom_return = tuple[IntRule, list[Rule]]
-
-def _decode_regex(regex: NautilusRegex) -> atom_return:
-    name = stateful_name_generator.generate_for('regex')
-    return IntRegexRule(name), list()
-
-def _str_to_nonterm(string: str) -> str:
-    return f"<{string}>"
-
-def _decode_atom(atom: NautilusAtom) -> atom_return:
+def _decode_atom(atom: NautilusAtom) -> tuple[Atom, list[Rule]]:
     match atom:
-        case NautilusNonterminal(nonterminal=nonterminal):
-            return IntTerminatingRule(_str_to_nonterm(nonterminal)), list()
         case NautilusTerminal(terminal=terminal):
-            return IntTerminatingRule(terminal), list()
-        case NautilusRegex():
-            return _decode_regex(atom)
+            return TerminalAtom(terminal), list()
+        case NautilusNonterminal(nonterminal=name):
+            return NonterminalAtom(f"<{name}>"), list()
+        case NautilusRegex(regex=regex):
+            return RegexAtom(regex), list()
         case NautilusExpr():
-            return _decode_expr(atom)
+            return _decode_expression(atom)
 
-def _create_regex_rule_when_unmatched(rule_mode: RuleMode, name: str, intermediate: IntRule) -> tuple[str,Rule] | None:
-    if rule_mode is RuleMode.regex or intermediate is not IntRegexRule:
-        return None
-
-    generated_name = stateful_name_generator.generate_for(name)
-
-    return generated_name, Rule(
-        generated_name,
-        RuleMode.regex,
-        intermediate.content
+def _construct_rule_for_regex(regex: RegexAtom, parent_name: str) -> tuple[str, Rule]: # Refferer and rule
+    name = stateful_name_generator.generate_for(parent_name)
+    return f"<{name}>", Rule( # TODO: Make this a function to generate nonterminals
+        name,
+        [
+            RegexBlock(
+                regex.regex
+            )
+        ]
     )
 
-def _decode_block(block: NautilusBlock, name: str) -> child_rule_return:
-    atoms = [
+def _construct_block_with_additional_references(child_atom: Atom, name: str) -> tuple[str, Rule | None]:
+    match child_atom:
+        case RegexAtom():
+            return _construct_rule_for_regex(child_atom, name)
+        case NonterminalAtom(refferer=text) | TerminalAtom(content=text):
+            return text, None
+
+def _construct_block(child_atoms: list[Atom], name: str) -> tuple[Block, list[Rule]]:
+    # TODO: Make this more nuanced. So that empty rules with child_atoms == [] a ruleBlock with an empty list
+    is_regex_rule = all(isinstance(atom, RegexAtom) for atom in child_atoms)
+
+    if is_regex_rule:
+        # Merge all the children
+        # This might thorw a type error. but all have been checked
+        content = "".join(regex.regex for regex in child_atoms)
+        return RegexBlock(content), list() # No new rules generated
+
+    block_data = [
+        _construct_block_with_additional_references(child_atom, name) for child_atom in child_atoms
+    ]
+    # Has to be done this way
+    additional_rules = [
+        block[1] for block in block_data
+    ]
+    additional_rules = [
+        block for block in additional_rules if block is not None
+    ]
+    content = "".join(
+        [
+            block[0] for block in block_data
+        ]
+    )
+    return RuleBlock(
+        content
+    ), additional_rules
+
+
+
+def _decode_block(block: NautilusBlock, name: str) -> tuple[Block, list[Rule]]:
+    child_atoms = [
         _decode_atom(atom) for atom in block.children
     ]
 
-    rules = [res[1] for res in atoms]
-
-    children = [res[0] for res in atoms]
-
-    rule_mode = _determine_rule_mode(children)
-
-    rule = Rule(
-        name,
-        rule_mode,
+    rules = _flatten(
+        [
+            child[1] for child in child_atoms
+        ]
     )
 
-    return rule, flatten(rules)
-
-def _determine_rule_mode(direct_child_rules: list[IntRule]) -> RuleMode:
-    for elem in direct_child_rules:
-        if not isinstance(elem, IntRegexRule):
-            return RuleMode.rule
-    return RuleMode.regex
-
-def _decode_expr(expr: NautilusExpr) -> atom_return:
-    name = expr.name
-    options = [
-        _decode_block(block, name) for block in expr.options
+    children = [
+        child[0] for child in child_atoms
     ]
 
-    # TODO: THE RULE CREATION SHOULD BE ON THE BLOCK LEVEL AND NOT HERE. Otherwise it cannot be decided or it is not optimal
+    block_with_refs = _construct_block(children, name)
 
-    return IntTerminatingRule(_str_to_nonterm(name)), list(itertools.chain(*all_child_rules)) # returns the refferer name
+    return block_with_refs[0], rules + block_with_refs[1]
 
-"""
-For every expression. Walk down the tree. yield each rule that is generated with its name.
-Check if a rule can be simplified to a regex rule 
-"""
-def _decode_to_rules(nautilus_expressions: list[NautilusExpr]) -> list[Rule]:
-    expressions = [
-        _decode_expr(expr) for expr in nautilus_expressions
+
+def _decode_expression(nautilus_expr: NautilusExpr) -> tuple[Atom, list[Rule]]:
+    name = nautilus_expr.name
+    blocks = [
+        _decode_block(block, name) for block in nautilus_expr.options
     ]
 
-    return expressions
+    child_rules = _flatten([
+        block[1] for block in blocks
+    ])
+
+    return NonterminalAtom(name), child_rules
+
+
+def decode_to_rules(nautilus_expressions: list[NautilusExpr]) -> list[Rule]:
+    rules = [
+        _decode_expression(expr)[1] for expr in nautilus_expressions
+    ]
+
+    return _flatten(rules)
+
+__all__ = ['decode_to_rules']
