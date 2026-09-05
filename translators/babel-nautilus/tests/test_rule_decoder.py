@@ -36,7 +36,7 @@ def _single_block_expr(name: str, *atoms) -> NautilusExpr:
 def test_terminal_and_nonterminal_block_becomes_a_single_rule_block():
     expr = _single_block_expr("foo", NautilusTerminal("a"), NautilusNonterminal("BAR"))
 
-    assert decode_to_rules([expr]) == [Rule("foo", [RuleBlock("a<BAR>")])]
+    assert decode_to_rules([expr]) == [Rule("foo", [RuleBlock("a{BAR}")])]
 
 
 def test_pure_regex_block_becomes_a_regex_rule():
@@ -77,7 +77,7 @@ def test_regex_atom_in_a_mixed_block_is_extracted_into_a_rule_before_its_parent(
 
     assert decode_to_rules([expr]) == [
         Rule("foo_0__GENERATED", [RegexBlock("[a-z]")]),
-        Rule("foo", [RuleBlock("a<foo_0__GENERATED>")]),
+        Rule("foo", [RuleBlock("a{foo_0__GENERATED}")]),
     ]
 
 
@@ -89,20 +89,19 @@ def test_each_regex_atom_in_a_mixed_block_gets_its_own_sequential_rule():
     assert decode_to_rules([expr]) == [
         Rule("foo_0__GENERATED", [RegexBlock("[0-9]")]),
         Rule("foo_1__GENERATED", [RegexBlock("[a-z]")]),
-        Rule("foo", [RuleBlock("a<foo_0__GENERATED><foo_1__GENERATED>")]),
+        Rule("foo", [RuleBlock("a{foo_0__GENERATED}{foo_1__GENERATED}")]),
     ]
 
 
-def test_nested_expression_produces_its_own_rule_referenced_by_bare_name():
-    # Unlike a real NautilusNonterminal, a nested NautilusExpr atom decodes to
-    # a bare-name reference with no surrounding "<...>" - an asymmetry in the
-    # current implementation worth locking down.
+def test_nested_expression_produces_its_own_rule_referenced_like_any_nonterminal():
+    # A nested NautilusExpr atom decodes to a "{name}"-wrapped reference, same
+    # as a real NautilusNonterminal - every nonterminal reference gets wrapped.
     inner = _single_block_expr("inner", NautilusTerminal("a"))
     outer = _single_block_expr("outer", NautilusTerminal("x"), inner)
 
     assert decode_to_rules([outer]) == [
         Rule("inner", [RuleBlock("a")]),
-        Rule("outer", [RuleBlock("xinner")]),
+        Rule("outer", [RuleBlock("x{inner}")]),
     ]
 
 
@@ -115,9 +114,9 @@ def test_rules_from_deeply_nested_expressions_are_collected_innermost_first():
 
     assert decode_to_rules([outer]) == [
         Rule("innermost_0__GENERATED", [RegexBlock("[0-9]")]),
-        Rule("innermost", [RuleBlock("a<innermost_0__GENERATED>")]),
-        Rule("middle", [RuleBlock("binnermost")]),
-        Rule("outer", [RuleBlock("middle")]),
+        Rule("innermost", [RuleBlock("a{innermost_0__GENERATED}")]),
+        Rule("middle", [RuleBlock("b{innermost}")]),
+        Rule("outer", [RuleBlock("{middle}")]),
     ]
 
 
@@ -127,9 +126,9 @@ def test_generated_names_are_scoped_per_parent_expression_name():
 
     assert decode_to_rules([foo, bar]) == [
         Rule("foo_0__GENERATED", [RegexBlock("[0-9]")]),
-        Rule("foo", [RuleBlock("a<foo_0__GENERATED>")]),
+        Rule("foo", [RuleBlock("a{foo_0__GENERATED}")]),
         Rule("bar_0__GENERATED", [RegexBlock("[a-z]")]),
-        Rule("bar", [RuleBlock("b<bar_0__GENERATED>")]),
+        Rule("bar", [RuleBlock("b{bar_0__GENERATED}")]),
     ]
 
 
@@ -150,8 +149,8 @@ def test_decode_atom_terminal():
     assert _decode_atom(NautilusTerminal("hi")) == (TerminalAtom("hi"), [])
 
 
-def test_decode_atom_nonterminal_wraps_name_in_angle_brackets():
-    assert _decode_atom(NautilusNonterminal("BAR")) == (NonterminalAtom("<BAR>"), [])
+def test_decode_atom_nonterminal_wraps_name_in_curly_braces():
+    assert _decode_atom(NautilusNonterminal("BAR")) == (NonterminalAtom("{BAR}"), [])
 
 
 def test_decode_atom_regex():
@@ -162,7 +161,7 @@ def test_decode_atom_nested_expression_returns_its_generated_rule():
     expr = _single_block_expr("inner", NautilusTerminal("a"))
 
     assert _decode_atom(expr) == (
-        NonterminalAtom("inner"),
+        NonterminalAtom("{inner}"),
         [Rule("inner", [RuleBlock("a")])],
     )
 
@@ -188,9 +187,9 @@ def test_construct_block_with_no_atoms_is_an_empty_regex_block():
 
 
 def test_construct_block_extracts_regex_atoms_when_mixed_with_other_atoms():
-    atoms = [TerminalAtom("a"), RegexAtom("[0-9]"), NonterminalAtom("<BAR>")]
+    atoms = [TerminalAtom("a"), RegexAtom("[0-9]"), NonterminalAtom("{BAR}")]
 
     block, rules = _construct_block(atoms, "foo")
 
-    assert block == RuleBlock("a<foo_0__GENERATED><BAR>")
+    assert block == RuleBlock("a{foo_0__GENERATED}{BAR}")
     assert rules == [Rule("foo_0__GENERATED", [RegexBlock("[0-9]")])]

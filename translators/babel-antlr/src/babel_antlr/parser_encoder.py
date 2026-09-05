@@ -49,7 +49,7 @@ def _encode_ebnf(ebnf: ANTLRv4Parser.EbnfContext) -> BabelAtom:
 
 def _encode_ruleref(ruleref: ANTLRv4Parser.RulerefContext) -> BabelNonterminal:
     content = (
-        ruleref.RULE_REF()
+        ruleref.RULE_REF().getText()
     )  # I suppose non terminal here but who knows. Testing this is absolutly horrible
     # Ignore Action block and elementOptions for now
     return BabelNonterminal(content)
@@ -107,7 +107,7 @@ def _encode_alt_list(alt_list: ANTLRv4Parser.RuleAltListContext) -> list[BabelBl
 def encode_parser_rule(
     parser_rule: ANTLRv4Parser.ParserRuleSpecContext,
 ) -> tuple[str, BabelProduction]:
-    name = parser_rule.RULE_REF()  # Lets hope this casts to a string
+    name = parser_rule.RULE_REF().getText()
     return name, BabelProduction(
         BabelBlockList(_encode_alt_list(parser_rule.ruleBlock().ruleAltList()))
     )

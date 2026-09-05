@@ -1,7 +1,7 @@
-
 """
 This might lead to problems with colission if another rule was initaliy named test0 or something. maybe initally put in BabelIr and check for all rules
 TODO: Add initial hydration via ir so that if a names does appear it will get skipped
+TODO: Make this `contextvar` so it does not behave as uncontrolably as globals tend to do
 """
 class NameGenerator:
     def __init__(self):

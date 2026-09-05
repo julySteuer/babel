@@ -1,8 +1,5 @@
-from abc import ABC
-from dataclasses import dataclass
-from enum import Enum
-
-from babel_ir.model import BabelIr, BabelProduction, BabelBlockList, BabelBlock
+from babel_ir.model import BabelIr
+from babel_nautilus import preprocess
 from babel_nautilus.model.rule import Rule, Block, RegexBlock, RuleBlock
 from babel_nautilus.rule_decoder import decode_to_rules
 
@@ -29,8 +26,9 @@ def _generate_rules(rules: list[Rule]) -> list[str]:
         _generate_rule(rule) for rule in rules
     ]
 
-def decode(babel_ir: BabelIr) -> str:
-    decoded = decode_ir(babel_ir)
+def decode(babel_ir: BabelIr, start_rule_name: str) -> str:
+    processed_ir = preprocess.add_start_rule(babel_ir, start_rule_name)
+    decoded = decode_ir(processed_ir)
     decoded_rules = decode_to_rules(decoded)
 
     generated_rules = _generate_rules(decoded_rules)

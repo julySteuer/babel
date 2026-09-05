@@ -15,6 +15,8 @@ from babel_nautilus.model.rule import (
     RuleBlock,
 )
 from babel_nautilus.name_generator import stateful_name_generator
+from babel_nautilus.shared import make_nonterminal_str
+
 
 def _flatten[T](l: list[list[T]]) -> list[T]:
     return list(itertools.chain(*l))
@@ -24,7 +26,7 @@ def _decode_atom(atom: NautilusAtom) -> tuple[Atom, list[Rule]]:
         case NautilusTerminal(terminal=terminal):
             return TerminalAtom(terminal), list()
         case NautilusNonterminal(nonterminal=name):
-            return NonterminalAtom(f"<{name}>"), list()
+            return NonterminalAtom(make_nonterminal_str(name)), list()
         case NautilusRegex(regex=regex):
             return RegexAtom(regex), list()
         case NautilusExpr():
@@ -32,7 +34,7 @@ def _decode_atom(atom: NautilusAtom) -> tuple[Atom, list[Rule]]:
 
 def _construct_rule_for_regex(regex: RegexAtom, parent_name: str) -> tuple[str, Rule]: # Refferer and rule
     name = stateful_name_generator.generate_for(parent_name)
-    return f"<{name}>", Rule( # TODO: Make this a function to generate nonterminals
+    return make_nonterminal_str(name), Rule( # TODO: Make this a function to generate nonterminals
         name,
         [
             RegexBlock(
@@ -118,7 +120,7 @@ def _decode_expression(nautilus_expr: NautilusExpr) -> tuple[Atom, list[Rule]]:
         block[1] for block in blocks
     ])
 
-    return NonterminalAtom(name), child_rules + [inner_rule]
+    return NonterminalAtom(make_nonterminal_str(name)), child_rules + [inner_rule]
 
 
 def decode_to_rules(nautilus_expressions: list[NautilusExpr]) -> list[Rule]:

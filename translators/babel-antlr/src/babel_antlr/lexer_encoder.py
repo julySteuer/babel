@@ -25,7 +25,7 @@ def _encode_lexer_atom(lexer_atom: ANTLRv4Parser.LexerAtomContext) -> BabelAtom:
         (terminal_def, encode_terminal_def),
         (character_range, encode_character_range),
         (not_set, encode_not_set),
-        (lexer_char_set, lambda lcs: BabelSymbol(lcs)),
+        (lexer_char_set, lambda lcs: BabelSymbol(lcs.getText())),
         (wildcard, ENCODE_WILDCARD_IN_EXEC_FIRST_VALID)
     )
 
@@ -51,7 +51,7 @@ def _encode_lexer_alt_list(lexer_alt_list: ANTLRv4Parser.LexerAltListContext) ->
     return BabelBlockList([_encode_lexer_alt(alt) for alt in lexer_alts])
 
 def encode_lexer_rule(lexer_rule: ANTLRv4Parser.LexerRuleSpecContext) -> tuple[str, BabelProduction]:
-    name = lexer_rule.TOKEN_REF()
+    name = lexer_rule.TOKEN_REF().getText()
     lexer_alt_list = lexer_rule.lexerRuleBlock().lexerAltList()
     babel_block_list = _encode_lexer_alt_list(lexer_alt_list)
     return name, BabelProduction(babel_block_list)

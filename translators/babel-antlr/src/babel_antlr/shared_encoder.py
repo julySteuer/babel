@@ -36,7 +36,7 @@ def encode_character_range(character_range: ANTLRv4Parser.CharacterRangeContext)
     beginning = character_range.STRING_LITERAL(0)
     end = character_range.STRING_LITERAL(1)
 
-    return BabelCharRange(beginning, end)
+    return BabelCharRange(beginning.getText(), end.getText())
 
 def encode_set_element(set_element: ANTLRv4Parser.SetElementContext) -> BabelAtom:
     token_ref = set_element.TOKEN_REF()
@@ -45,10 +45,10 @@ def encode_set_element(set_element: ANTLRv4Parser.SetElementContext) -> BabelAto
     lexer_char_set = set_element.LEXER_CHAR_SET()
 
     return exec_first_valid(
-        (token_ref, lambda ref: BabelNonterminal(ref)), # TODO: Rename Symbol to something that suggests one or more characters
-        (string_literal, lambda lit: BabelSymbol(lit)),
+        (token_ref, lambda ref: BabelNonterminal(ref.getText())), # TODO: Rename Symbol to something that suggests one or more characters
+        (string_literal, lambda lit: BabelSymbol(lit.getText())),
         (char_range, encode_character_range),
-        (lexer_char_set, lambda lcs: BabelSymbol(lexer_char_set))
+        (lexer_char_set, lambda lcs: BabelSymbol(lcs.getText()))
     )
 
 def _encode_block_set(block_set: ANTLRv4Parser.BlockSetContext) -> BabelBlock:

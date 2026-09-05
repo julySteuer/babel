@@ -7,6 +7,7 @@ members = [
     "babel",
     "babel-antlr",
     "babel-cli",
+    "babel-core",
     "babel-ir",
     "babel-nautilus",
 ]
@@ -88,6 +89,23 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "babel-antlr", editable = "translators/babel-antlr" }]
+
+[[package]]
+name = "babel-core"
+version = "0.1.0"
+source = { editable = "packages/babel-core" }
+dependencies = [
+    { name = "babel-antlr" },
+    { name = "babel-ir" },
+    { name = "babel-nautilus" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "babel-antlr", editable = "translators/babel-antlr" },
+    { name = "babel-ir", editable = "packages/babel-ir" },
+    { name = "babel-nautilus", editable = "translators/babel-nautilus" },
+]
 
 [[package]]
 name = "babel-ir"
