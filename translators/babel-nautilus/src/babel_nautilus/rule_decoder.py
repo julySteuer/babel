@@ -13,6 +13,7 @@ from babel_nautilus.model.rule import (
     RegexAtom,
     RegexBlock,
     RuleBlock,
+    EmptyBlock,
 )
 from babel_nautilus.name_generator import stateful_name_generator
 from babel_nautilus.shared import make_nonterminal_str
@@ -52,6 +53,8 @@ def _construct_block_with_additional_references(child_atom: Atom, name: str) -> 
 
 def _construct_block(child_atoms: list[Atom], name: str) -> tuple[Block, list[Rule]]:
     # TODO: Make this more nuanced. So that empty rules with child_atoms == [] a ruleBlock with an empty list
+    if not child_atoms:
+        return EmptyBlock(), list()
     is_regex_rule = all(isinstance(atom, RegexAtom) for atom in child_atoms)
 
     if is_regex_rule:

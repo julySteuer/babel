@@ -84,11 +84,11 @@ name = "babel-cli"
 version = "0.1.0"
 source = { editable = "packages/babel-cli" }
 dependencies = [
-    { name = "babel-antlr" },
+    { name = "babel-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "babel-antlr", editable = "translators/babel-antlr" }]
+requires-dist = [{ name = "babel-core", editable = "packages/babel-core" }]
 
 [[package]]
 name = "babel-core"

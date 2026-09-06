@@ -1,3 +1,5 @@
+from antlr4.tree.Tree import TerminalNode, TerminalNodeImpl
+
 from babel_antlr._generated.ANTLRv4Parser import ANTLRv4Parser
 from babel_antlr.util import exec_first_valid
 from babel_ir.model import (
@@ -25,18 +27,24 @@ def encode_ebnf_suffix_with_inner(
         (ebnf_suffix.QUESTION(0), lambda _: BabelOptional(inner)), # Only if all fail check if one question mark was set (weird way to check i know)
     )
 
+def make_symbol(terminal_node: TerminalNodeImpl) -> BabelSymbol:
+    return BabelSymbol(process_symbol_str(terminal_node.getText()))
+
+def process_symbol_str(symbol_str: str) -> str:
+    return symbol_str[1:len(symbol_str) - 1]
+
 def encode_terminal_def(terminal_def: ANTLRv4Parser.TerminalDefContext) -> BabelAtom:
     return (
         BabelNonterminal(terminal_def.TOKEN_REF().getText())
         if terminal_def.TOKEN_REF() is not None
-        else BabelSymbol(terminal_def.STRING_LITERAL().getText())
+        else make_symbol(terminal_def.STRING_LITERAL()) # Get text needs to be one layer firther down
     )
 
 def encode_character_range(character_range: ANTLRv4Parser.CharacterRangeContext) -> BabelCharRange:
-    beginning = character_range.STRING_LITERAL(0)
-    end = character_range.STRING_LITERAL(1)
+    beginning = process_symbol_str(character_range.STRING_LITERAL(0).getText())
+    end = process_symbol_str(character_range.STRING_LITERAL(1).getText())
 
-    return BabelCharRange(beginning.getText(), end.getText())
+    return BabelCharRange(beginning, end)
 
 def encode_set_element(set_element: ANTLRv4Parser.SetElementContext) -> BabelAtom:
     token_ref = set_element.TOKEN_REF()
@@ -46,9 +54,9 @@ def encode_set_element(set_element: ANTLRv4Parser.SetElementContext) -> BabelAto
 
     return exec_first_valid(
         (token_ref, lambda ref: BabelNonterminal(ref.getText())), # TODO: Rename Symbol to something that suggests one or more characters
-        (string_literal, lambda lit: BabelSymbol(lit.getText())),
+        (string_literal, lambda lit: make_symbol(lit)),
         (char_range, encode_character_range),
-        (lexer_char_set, lambda lcs: BabelSymbol(lcs.getText()))
+        (lexer_char_set, lambda lcs: make_symbol(lcs))
     )
 
 def _encode_block_set(block_set: ANTLRv4Parser.BlockSetContext) -> BabelBlock:

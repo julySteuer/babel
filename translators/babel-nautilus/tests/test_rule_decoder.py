@@ -11,6 +11,7 @@ from babel_nautilus.model.rule import (
     Rule,
     RegexBlock,
     RuleBlock,
+    EmptyBlock,
     TerminalAtom,
     NonterminalAtom,
     RegexAtom,
@@ -45,13 +46,14 @@ def test_pure_regex_block_becomes_a_regex_rule():
     assert decode_to_rules([expr]) == [Rule("foo", [RegexBlock("[a-z][0-9]")])]
 
 
-def test_empty_block_becomes_an_empty_regex_rule():
-    # all(...) over an empty iterable is vacuously True, so an epsilon block
-    # (e.g. the base case of an optional/star desugaring) is classified as a
-    # "pure regex" block with empty content.
+def test_empty_block_becomes_an_empty_rule():
+    # An epsilon block (e.g. the base case of an optional/star desugaring) is
+    # its own EmptyBlock case, decoded as a ctx.rule with empty content rather
+    # than a ctx.regex - matching how nautilus's own example grammars encode
+    # empty productions.
     expr = _single_block_expr("foo")
 
-    assert decode_to_rules([expr]) == [Rule("foo", [RegexBlock("")])]
+    assert decode_to_rules([expr]) == [Rule("foo", [EmptyBlock()])]
 
 
 def test_multiple_options_produce_one_rule_with_one_block_per_option():
@@ -176,13 +178,13 @@ def test_construct_block_merges_all_regex_atoms_into_one_block():
     assert rules == []
 
 
-def test_construct_block_with_no_atoms_is_an_empty_regex_block():
-    # all(...) over an empty iterable is vacuously True, so an epsilon block
-    # (e.g. the base case of an optional/star desugaring) is currently
-    # classified as a "pure regex" block with empty content.
+def test_construct_block_with_no_atoms_is_an_empty_block():
+    # An epsilon block (e.g. the base case of an optional/star desugaring) is
+    # handled before the pure-regex check, so it becomes EmptyBlock rather
+    # than a RegexBlock with empty content.
     block, rules = _construct_block([], "foo")
 
-    assert block == RegexBlock("")
+    assert block == EmptyBlock()
     assert rules == []
 
 

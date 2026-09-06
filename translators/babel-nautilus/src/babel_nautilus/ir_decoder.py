@@ -80,6 +80,10 @@ def _from_babel_not(note: BabelNot, parent_name: str) -> NautilusExpr:
             )
     return NautilusExpr(name, options=[NautilusBlock([negated])])
 
+def _from_block_list(block_list: BabelBlockList, parent_name: str) -> NautilusExpr:
+    name = stateful_name_generator.generate_for(parent_name)
+    return _make_rule(name, block_list)
+
 def _from_babel_atom(atom: BabelAtom, parent_name: str) -> NautilusAtom:
     match atom:
         case BabelOptional():
@@ -94,6 +98,8 @@ def _from_babel_atom(atom: BabelAtom, parent_name: str) -> NautilusAtom:
             return _from_babel_not(atom, parent_name)
         case BabelNonterminal():
             return NautilusNonterminal(atom.nonterminal)
+        case BabelBlockList():
+            return _from_block_list(atom, parent_name)
         # TODO: Add Block List
 
 def _from_block(block: BabelBlock, parent_name: str) -> NautilusBlock:

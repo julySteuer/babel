@@ -3,14 +3,18 @@ from dataclasses import dataclass
 
 @dataclass
 class Block(ABC):
-    content: str
-
-@dataclass
-class RegexBlock(Block):
     pass
 
 @dataclass
+class RegexBlock(Block):
+    content: str
+
+@dataclass
 class RuleBlock(Block):
+    content: str
+
+@dataclass
+class EmptyBlock(Block):
     pass
 
 class Atom(ABC):

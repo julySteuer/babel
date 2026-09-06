@@ -108,7 +108,7 @@ def test_optional_desugaring_compiles_the_synthetic_rule_and_the_referencing_rul
 
     assert decode(ir, "foo") == (
         'ctx.rule("foo_0__GENERATED", "b")\n'
-        'ctx.regex("foo_0__GENERATED", "")\n'
+        'ctx.rule("foo_0__GENERATED", "")\n'
         'ctx.rule("foo", "{foo_0__GENERATED}")\n'
         'ctx.rule("START", "{foo}")'
     )

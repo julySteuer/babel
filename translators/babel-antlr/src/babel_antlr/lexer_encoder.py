@@ -1,3 +1,5 @@
+from antlr4.tree.Tree import TerminalNode
+
 from babel_antlr._generated.ANTLRv4Parser import ANTLRv4Parser
 from babel_antlr.shared_encoder import (
     encode_ebnf_suffix_with_inner,
@@ -8,11 +10,14 @@ from babel_antlr.shared_encoder import (
     ENCODE_WILDCARD_IN_EXEC_FIRST_VALID,
 )
 from babel_antlr.util import exec_first_valid
-from babel_ir.model import BabelAtom, BabelBlock, BabelBlockList, BabelProduction, BabelSymbol
+from babel_ir.model import BabelAtom, BabelBlock, BabelBlockList, BabelCharRange, BabelProduction, BabelSymbol
 
 
 def _encode_lexer_block(lexer_block: ANTLRv4Parser.LexerBlockContext) -> BabelAtom:
     return _encode_lexer_alt_list(lexer_block.lexerAltList())
+
+def _parse_lexer_char_set(lexer_char_set: TerminalNode) -> BabelAtom:
+    text = lexer_char_set.getText()
 
 def _encode_lexer_atom(lexer_atom: ANTLRv4Parser.LexerAtomContext) -> BabelAtom:
     terminal_def = lexer_atom.terminalDef()
@@ -25,7 +30,7 @@ def _encode_lexer_atom(lexer_atom: ANTLRv4Parser.LexerAtomContext) -> BabelAtom:
         (terminal_def, encode_terminal_def),
         (character_range, encode_character_range),
         (not_set, encode_not_set),
-        (lexer_char_set, lambda lcs: BabelSymbol(lcs.getText())),
+        (lexer_char_set, _parse_lexer_char_set),
         (wildcard, ENCODE_WILDCARD_IN_EXEC_FIRST_VALID)
     )
 

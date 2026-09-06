@@ -1,6 +1,6 @@
 from babel_ir.model import BabelIr
 from babel_nautilus import preprocess
-from babel_nautilus.model.rule import Rule, Block, RegexBlock, RuleBlock
+from babel_nautilus.model.rule import Rule, Block, RegexBlock, RuleBlock, EmptyBlock
 from babel_nautilus.rule_decoder import decode_to_rules
 
 from babel_nautilus.ir_decoder import decode_ir
@@ -11,6 +11,8 @@ def _string_from_block(block: Block, name: str) -> str:
             return f"ctx.regex(\"{name}\", \"{content}\")"
         case RuleBlock(content=content):
             return f"ctx.rule(\"{name}\", \"{content}\")"
+        case EmptyBlock():
+            return f"ctx.rule(\"{name}\", \"\")"
 
 def _generate_rule(rule: Rule) -> str:
     name = rule.name
