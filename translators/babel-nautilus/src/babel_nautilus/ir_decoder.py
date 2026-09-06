@@ -12,7 +12,7 @@ from babel_ir.model import (
     BabelNumRange,
     BabelStar,
     BabelPlus,
-    BabelNot,
+    BabelNot, BabelRawRegex,
 )
 
 from babel_nautilus.model.nautilus_ir import (
@@ -38,6 +38,8 @@ def _from_babel_optional(optional: BabelOptional, parent_name: str) -> NautilusE
 
 def _from_babel_terminal(terminal: BabelTerminal) -> NautilusAtom:
     match terminal:
+        case BabelRawRegex(raw=regex):
+            return NautilusRegex(regex)
         case BabelSymbol(terminal=symbol):
             return NautilusTerminal(symbol)
         case BabelCharRange(beginning=beginning, end=end) | BabelNumRange(beginning=beginning, end=end):
@@ -66,7 +68,7 @@ def _from_babel_plus(plus: BabelPlus, parent_name: str) -> NautilusExpr:
 
 def _from_babel_not(note: BabelNot, parent_name: str) -> NautilusExpr:
     name = stateful_name_generator.generate_for(parent_name)
-    match note.atom:
+    match note.atom: # TODO: Add handeling for raw regex
         case BabelSymbol(terminal=symbol):
             negated = NautilusRegex(f"[^{symbol}]")
         case BabelCharRange(beginning=beginning, end=end):

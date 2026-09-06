@@ -57,6 +57,9 @@ class BabelNumRange(BabelRange[int]):
     pass
 
 # TODO: BabelRegex maybe that just takes a raw regex expression
+@dataclass
+class BabelRawRegex(BabelTerminal):
+    raw: str
 
 # This should propably not be an atom. Tis from earliere TODO: Remove
 @dataclass

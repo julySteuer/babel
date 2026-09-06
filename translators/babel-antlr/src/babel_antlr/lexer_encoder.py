@@ -10,7 +10,8 @@ from babel_antlr.shared_encoder import (
     ENCODE_WILDCARD_IN_EXEC_FIRST_VALID,
 )
 from babel_antlr.util import exec_first_valid
-from babel_ir.model import BabelAtom, BabelBlock, BabelBlockList, BabelCharRange, BabelProduction, BabelSymbol
+from babel_ir.model import BabelAtom, BabelBlock, BabelBlockList, BabelCharRange, BabelProduction, BabelSymbol, \
+    BabelRawRegex
 
 
 def _encode_lexer_block(lexer_block: ANTLRv4Parser.LexerBlockContext) -> BabelAtom:
@@ -18,6 +19,7 @@ def _encode_lexer_block(lexer_block: ANTLRv4Parser.LexerBlockContext) -> BabelAt
 
 def _parse_lexer_char_set(lexer_char_set: TerminalNode) -> BabelAtom:
     text = lexer_char_set.getText()
+    return BabelRawRegex(text)
 
 def _encode_lexer_atom(lexer_atom: ANTLRv4Parser.LexerAtomContext) -> BabelAtom:
     terminal_def = lexer_atom.terminalDef()
