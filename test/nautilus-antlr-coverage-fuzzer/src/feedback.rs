@@ -1,25 +1,50 @@
+use std::borrow::Cow;
 use std::collections::HashSet;
 
-pub trait Feedback {
-    fn is_interesting(&mut self, observed: &HashSet<String>) -> bool;
-    fn visited(&self) -> &HashSet<String>;
-}
+use libafl::Error;
+use libafl::executors::ExitKind;
+use libafl::feedbacks::{Feedback, StateInitializer};
+use libafl::inputs::nautilus::NautilusInput;
+use libafl_bolts::Named;
 
-#[derive(Default)]
+use crate::observer::AntlrTraceObserver;
+
+/// Accumulates every ANTLR parser rule seen across the whole run.
 pub struct RuleCoverageFeedback {
-    visited: HashSet<String>,
+    name: Cow<'static, str>,
+    pub visited: HashSet<String>,
 }
 
-impl Feedback for RuleCoverageFeedback {
-    fn is_interesting(&mut self, observed: &HashSet<String>) -> bool {
+impl RuleCoverageFeedback {
+    pub fn new() -> Self {
+        Self {
+            name: Cow::Borrowed("rule_coverage"),
+            visited: HashSet::new(),
+        }
+    }
+}
+
+impl Named for RuleCoverageFeedback {
+    fn name(&self) -> &Cow<'static, str> {
+        &self.name
+    }
+}
+
+impl<S> StateInitializer<S> for RuleCoverageFeedback {}
+
+impl<EM, S> Feedback<EM, NautilusInput, (AntlrTraceObserver, ()), S> for RuleCoverageFeedback {
+    fn is_interesting(
+        &mut self,
+        _state: &mut S,
+        _manager: &mut EM,
+        _input: &NautilusInput,
+        observers: &(AntlrTraceObserver, ()),
+        _exit_kind: &ExitKind,
+    ) -> Result<bool, Error> {
         let mut found_new = false;
-        for rule in observed {
+        for rule in &observers.0.visited {
             found_new |= self.visited.insert(rule.clone());
         }
-        found_new
-    }
-
-    fn visited(&self) -> &HashSet<String> {
-        &self.visited
+        Ok(found_new)
     }
 }

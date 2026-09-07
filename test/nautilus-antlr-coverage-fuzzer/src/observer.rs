@@ -1,19 +1,31 @@
+use std::borrow::Cow;
 use std::collections::HashSet;
-use std::path::Path;
 
-use crate::antlr;
+use libafl::observers::Observer;
+use libafl_bolts::Named;
+use serde::{Deserialize, Serialize};
 
-pub trait Observer {
-    fn observe(&self, generated_input: &str) -> HashSet<String>;
+/// Holds the ANTLR parser rules visited by the most recent execution.
+/// Populated by `AntlrParseExecutor::run_target`, read back by `RuleCoverageFeedback`.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AntlrTraceObserver {
+    name: Cow<'static, str>,
+    pub visited: HashSet<String>,
 }
 
-pub struct AntlrTraceObserver<'a> {
-    pub grammar_path: &'a Path,
-    pub start_rule: &'a str,
-}
-
-impl Observer for AntlrTraceObserver<'_> {
-    fn observe(&self, generated_input: &str) -> HashSet<String> {
-        antlr::trace_visited_rules(self.grammar_path, self.start_rule, generated_input)
+impl AntlrTraceObserver {
+    pub fn new() -> Self {
+        Self {
+            name: Cow::Borrowed("antlr_trace"),
+            visited: HashSet::new(),
+        }
     }
 }
+
+impl Named for AntlrTraceObserver {
+    fn name(&self) -> &Cow<'static, str> {
+        &self.name
+    }
+}
+
+impl<I, S> Observer<I, S> for AntlrTraceObserver {}

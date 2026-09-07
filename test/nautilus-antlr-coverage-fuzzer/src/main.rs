@@ -1,4 +1,5 @@
 mod antlr;
+mod executor;
 mod feedback;
 mod observer;
 
@@ -6,13 +7,19 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::process::exit;
 
+use libafl::corpus::InMemoryCorpus;
+use libafl::feedbacks::ConstFeedback;
+use libafl::fuzzer::{Evaluator, HasFeedback, StdFuzzer};
 use libafl::generators::Generator;
 use libafl::generators::nautilus::{NautilusContext, NautilusGenerator};
 use libafl::inputs::nautilus::NautilusInput;
-use libafl::state::NopState;
+use libafl::schedulers::QueueScheduler;
+use libafl::state::StdState;
+use libafl_bolts::current_nanos;
+use libafl_bolts::rands::StdRand;
 
-use feedback::{Feedback, RuleCoverageFeedback};
-use observer::{AntlrTraceObserver, Observer};
+use executor::AntlrParseExecutor;
+use feedback::RuleCoverageFeedback;
 
 const TREE_DEPTH: usize = 60;
 
@@ -43,31 +50,37 @@ fn main() {
     let context = NautilusContext::from_file(TREE_DEPTH, nautilus_grammar_path)
         .expect("failed to load nautilus grammar");
     let mut generator = NautilusGenerator::new(&context);
-    let mut state = NopState::<NautilusInput>::new();
 
     let antlr_grammar_path = PathBuf::from(antlr_grammar_path);
-    let observer = AntlrTraceObserver {
-        grammar_path: &antlr_grammar_path,
-        start_rule: &start_rule,
-    };
-    let mut feedback = RuleCoverageFeedback::default();
+    let mut executor = AntlrParseExecutor::new(&antlr_grammar_path, &start_rule, &context);
 
-    let mut bytes = Vec::new();
+    let mut feedback = RuleCoverageFeedback::new();
+    let mut objective = ConstFeedback::from(false);
+
+    let mut state = StdState::new(
+        StdRand::with_seed(current_nanos()),
+        InMemoryCorpus::<NautilusInput>::new(),
+        InMemoryCorpus::<NautilusInput>::new(),
+        &mut feedback,
+        &mut objective,
+    )
+    .expect("failed to build fuzzer state");
+
+    let mut fuzzer = StdFuzzer::new(QueueScheduler::new(), feedback, objective);
+    let mut mgr = libafl::events::NopEventManager::new();
+
     for _ in 0..repetitions {
         let input = generator
             .generate(&mut state)
             .expect("failed to generate a nautilus input");
-        bytes.clear();
-        input.unparse(&context, &mut bytes);
-
-        let generated_input = String::from_utf8_lossy(&bytes);
-        let observed = observer.observe(&generated_input);
-        feedback.is_interesting(&observed);
+        fuzzer
+            .evaluate_input(&mut state, &mut executor, &mut mgr, &input)
+            .expect("failed to evaluate generated input");
     }
 
     println!(
         "Visited {}/{} rules over {repetitions} runs",
-        feedback.visited().len(),
+        fuzzer.feedback().visited.len(),
         total_rules.len(),
     );
 }
