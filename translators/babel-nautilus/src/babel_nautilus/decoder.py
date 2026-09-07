@@ -30,7 +30,8 @@ def _generate_rules(rules: list[Rule]) -> list[str]:
 
 def decode(babel_ir: BabelIr, start_rule_name: str) -> str:
     processed_ir = preprocess.add_start_rule(babel_ir, start_rule_name)
-    decoded = decode_ir(processed_ir)
+    added_eof_ir = preprocess.add_eof_rule(processed_ir)
+    decoded = decode_ir(added_eof_ir)
     decoded_rules = decode_to_rules(decoded)
 
     generated_rules = _generate_rules(decoded_rules)

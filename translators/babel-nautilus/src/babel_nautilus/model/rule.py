@@ -1,6 +1,9 @@
 from abc import ABC
 from dataclasses import dataclass
 
+from babel_nautilus.shared import check_nonterminal_reference
+
+
 @dataclass
 class Block(ABC):
     pass
@@ -28,6 +31,10 @@ class TerminalAtom(Atom):
 class NonterminalAtom(Atom):
     refferer: str
 
+    def __post_init__(self):
+        if not self.refferer.startswith('{') or not self.refferer.endswith('}') or not self.refferer[1].isupper():
+            raise Exception(f"Malformed NonterminalAtom: {self.refferer}")
+
 @dataclass
 class RegexAtom(Atom):
     regex: str
@@ -36,3 +43,6 @@ class RegexAtom(Atom):
 class Rule:
     name: str
     blocks: list[Block]
+
+    def __post_init__(self):
+        check_nonterminal_reference(self.name)
