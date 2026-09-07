@@ -620,6 +620,7 @@ dependencies = [
  "libafl_bolts",
  "regex",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

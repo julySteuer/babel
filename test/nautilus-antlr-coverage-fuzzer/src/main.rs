@@ -6,6 +6,7 @@ mod observer;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::process::exit;
+use std::time::Instant;
 
 use libafl::corpus::InMemoryCorpus;
 use libafl::feedbacks::ConstFeedback;
@@ -17,33 +18,53 @@ use libafl::schedulers::QueueScheduler;
 use libafl::state::StdState;
 use libafl_bolts::current_nanos;
 use libafl_bolts::rands::StdRand;
+use serde::Serialize;
 
 use executor::AntlrParseExecutor;
 use feedback::RuleCoverageFeedback;
 
 const TREE_DEPTH: usize = 60;
 
+#[derive(Serialize)]
+struct PerformanceReport {
+    antlr_grammars: Vec<String>,
+    repetitions: usize,
+    total_rules: usize,
+    visited_rules: usize,
+    coverage: f64,
+    elapsed_secs: f64,
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let [_, nautilus_grammar_path, antlr_grammar_path, repetitions] = args.as_slice() else {
+    let [_, nautilus_grammar_path, repetitions, antlr_grammar_paths @ ..] = args.as_slice() else {
         eprintln!(
-            "usage: nautilus-antlr-coverage-fuzzer <nautilus-grammar.py> <antlr-grammar.g4> <repetitions>"
+            "usage: nautilus-antlr-coverage-fuzzer <nautilus-grammar.py> <repetitions> <antlr-grammar.g4>..."
         );
         exit(1);
     };
+
+    if antlr_grammar_paths.is_empty() {
+        eprintln!("at least one antlr grammar file is required");
+        exit(1);
+    }
 
     let repetitions: usize = repetitions.parse().unwrap_or_else(|_| {
         eprintln!("repetitions must be a positive integer, got {repetitions:?}");
         exit(1);
     });
 
-    let antlr_source = std::fs::read_to_string(antlr_grammar_path)
-        .unwrap_or_else(|err| panic!("failed to read {antlr_grammar_path}: {err}"));
+    let antlr_sources: Vec<String> = antlr_grammar_paths
+        .iter()
+        .map(|path| {
+            std::fs::read_to_string(path).unwrap_or_else(|err| panic!("failed to read {path}: {err}"))
+        })
+        .collect();
 
-    let all_rules = antlr::parser_rule_names(&antlr_source);
+    let all_rules = antlr::parser_rule_names(&antlr_sources);
     let start_rule = all_rules
         .first()
-        .expect("no parser rules found in the antlr grammar")
+        .expect("no parser rules found in the antlr grammar(s)")
         .clone();
     let total_rules: HashSet<&String> = all_rules.iter().collect();
 
@@ -51,8 +72,8 @@ fn main() {
         .expect("failed to load nautilus grammar");
     let mut generator = NautilusGenerator::new(&context);
 
-    let antlr_grammar_path = PathBuf::from(antlr_grammar_path);
-    let mut executor = AntlrParseExecutor::new(&antlr_grammar_path, &start_rule, &context);
+    let antlr_grammar_paths: Vec<PathBuf> = antlr_grammar_paths.iter().map(PathBuf::from).collect();
+    let mut executor = AntlrParseExecutor::new(&antlr_grammar_paths, &start_rule, &context);
 
     let mut feedback = RuleCoverageFeedback::new();
     let mut objective = ConstFeedback::from(false);
@@ -69,6 +90,7 @@ fn main() {
     let mut fuzzer = StdFuzzer::new(QueueScheduler::new(), feedback, objective);
     let mut mgr = libafl::events::NopEventManager::new();
 
+    let start = Instant::now();
     for _ in 0..repetitions {
         let input = generator
             .generate(&mut state)
@@ -77,10 +99,27 @@ fn main() {
             .evaluate_input(&mut state, &mut executor, &mut mgr, &input)
             .expect("failed to evaluate generated input");
     }
+    let elapsed_secs = start.elapsed().as_secs_f64();
+
+    let visited_rules = fuzzer.feedback().visited.len();
+    let report = PerformanceReport {
+        antlr_grammars: antlr_grammar_paths
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect(),
+        repetitions,
+        total_rules: total_rules.len(),
+        visited_rules,
+        coverage: if total_rules.is_empty() {
+            0.0
+        } else {
+            visited_rules as f64 / total_rules.len() as f64
+        },
+        elapsed_secs,
+    };
 
     println!(
-        "Visited {}/{} rules over {repetitions} runs",
-        fuzzer.feedback().visited.len(),
-        total_rules.len(),
+        "{}",
+        serde_json::to_string(&report).expect("failed to serialize performance report")
     );
 }

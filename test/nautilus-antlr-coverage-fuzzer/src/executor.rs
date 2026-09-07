@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::PathBuf;
 
 use libafl::Error;
 use libafl::executors::{Executor, ExitKind, HasObservers};
@@ -12,7 +12,7 @@ use crate::observer::AntlrTraceObserver;
 /// "Runs the target" by unparsing the generated tree and feeding it to `antlr4-parse`,
 /// storing the visited rule set into its observer for the feedback to pick up.
 pub struct AntlrParseExecutor<'a> {
-    grammar_path: &'a Path,
+    grammar_paths: &'a [PathBuf],
     start_rule: &'a str,
     context: &'a NautilusContext,
     observers: (AntlrTraceObserver, ()),
@@ -20,9 +20,9 @@ pub struct AntlrParseExecutor<'a> {
 }
 
 impl<'a> AntlrParseExecutor<'a> {
-    pub fn new(grammar_path: &'a Path, start_rule: &'a str, context: &'a NautilusContext) -> Self {
+    pub fn new(grammar_paths: &'a [PathBuf], start_rule: &'a str, context: &'a NautilusContext) -> Self {
         Self {
-            grammar_path,
+            grammar_paths,
             start_rule,
             context,
             observers: (AntlrTraceObserver::new(), ()),
@@ -42,7 +42,7 @@ impl<EM, S, Z> Executor<EM, NautilusInput, S, Z> for AntlrParseExecutor<'_> {
         input.unparse(self.context, &mut self.bytes);
         let generated_input = String::from_utf8_lossy(&self.bytes);
         self.observers.0.visited =
-            antlr::trace_visited_rules(self.grammar_path, self.start_rule, &generated_input);
+            antlr::trace_visited_rules(self.grammar_paths, self.start_rule, &generated_input);
         Ok(ExitKind::Ok)
     }
 }

@@ -1,39 +1,39 @@
 use std::collections::HashSet;
 use std::io::Write;
-use std::path::Path;
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 use regex::Regex;
 
 const ANTLR_VERSION: &str = "4.13.2";
 
-pub fn parser_rule_names(source: &str) -> Vec<String> {
+pub fn parser_rule_names(sources: &[String]) -> Vec<String> {
     let comments = Regex::new(r"(?s)/\*.*?\*/|//[^\n]*").unwrap();
-    let cleaned = comments.replace_all(source, "");
-
     let rule_head = Regex::new(r"(?m)^\s*([a-z][A-Za-z0-9_]*)\s*:").unwrap();
+
     let mut names = Vec::new();
     let mut seen = HashSet::new();
-    for capture in rule_head.captures_iter(&cleaned) {
-        let name = capture[1].to_string();
-        if seen.insert(name.clone()) {
-            names.push(name);
+    for source in sources {
+        let cleaned = comments.replace_all(source, "");
+        for capture in rule_head.captures_iter(&cleaned) {
+            let name = capture[1].to_string();
+            if seen.insert(name.clone()) {
+                names.push(name);
+            }
         }
     }
     names
 }
 
-pub fn trace_visited_rules(grammar_path: &Path, start_rule: &str, input: &str) -> HashSet<String> {
+pub fn trace_visited_rules(grammar_paths: &[PathBuf], start_rule: &str, input: &str) -> HashSet<String> {
     let mut child = Command::new("uv")
-        .args([
-            "run",
-            "antlr4-parse",
-            "-v",
-            ANTLR_VERSION,
-            grammar_path.to_str().expect("non-utf8 grammar path"),
-            start_rule,
-            "-trace",
-        ])
+        .args(["run", "antlr4-parse", "-v", ANTLR_VERSION])
+        .args(
+            grammar_paths
+                .iter()
+                .map(|path| path.to_str().expect("non-utf8 grammar path")),
+        )
+        .args([start_rule, "-trace"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
