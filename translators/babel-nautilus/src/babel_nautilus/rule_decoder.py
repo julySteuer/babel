@@ -16,7 +16,7 @@ from babel_nautilus.model.rule import (
     EmptyBlock,
 )
 from babel_nautilus.name_generator import stateful_name_generator
-from babel_nautilus.shared import make_nonterminal_str
+from babel_nautilus.shared import make_nonterminal_str, capitalize_name
 
 
 def _flatten[T](l: list[list[T]]) -> list[T]:
@@ -35,8 +35,8 @@ def _decode_atom(atom: NautilusAtom) -> tuple[Atom, list[Rule]]:
 
 def _construct_rule_for_regex(regex: RegexAtom, parent_name: str) -> tuple[str, Rule]: # Refferer and rule
     name = stateful_name_generator.generate_for(parent_name)
-    return make_nonterminal_str(name), Rule( # TODO: Make this a function to generate nonterminals
-        name,
+    return make_nonterminal_str(capitalize_name(name)), Rule( # TODO: Make this a function to generate nonterminals
+        capitalize_name(name),
         [
             RegexBlock(
                 regex.regex

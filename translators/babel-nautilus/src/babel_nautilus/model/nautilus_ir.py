@@ -2,6 +2,7 @@ from abc import ABC
 from dataclasses import dataclass
 
 from babel_ir.model import BabelBlock
+from babel_nautilus.shared import check_nonterminal_reference, capitalize_name
 
 """
 NautilusRule(name: str, options: [NautilusBlock])
@@ -51,6 +52,9 @@ class NautilusTerminal(NautilusAtom):
 class NautilusNonterminal(NautilusAtom):
     nonterminal: str
 
+    def __post_init__(self):
+        check_nonterminal_reference(self.nonterminal)
+
 @dataclass
 class NautilusRegex(NautilusAtom):
     regex: str
@@ -65,3 +69,10 @@ class NautilusBlock:
 class NautilusExpr(NautilusAtom):
     name: str
     options: list[NautilusBlock]
+
+    @classmethod
+    def capitalize_name(cls, name: str, options: list[NautilusBlock]):
+        return cls(capitalize_name(name), options)
+
+    def __post_init__(self):
+        check_nonterminal_reference(self.name)

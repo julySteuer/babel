@@ -24,11 +24,19 @@ from babel_nautilus.model.nautilus_ir import (
     NautilusRegex,
 )
 from babel_nautilus.name_generator import stateful_name_generator
+from babel_nautilus.shared import capitalize_name
+
+
+def _escape_terminal(terminal: str) -> str:
+    pass
+
+def _create_capital_nonterminal(nonterminal: str) -> NautilusNonterminal:
+    return NautilusNonterminal(capitalize_name(nonterminal))
 
 def _from_babel_optional(optional: BabelOptional, parent_name: str) -> NautilusExpr:
     name = stateful_name_generator.generate_for(parent_name)
     inner = _from_babel_atom(optional.atom, name)
-    return NautilusExpr(
+    return NautilusExpr.capitalize_name(
         name,
         options=[
             NautilusBlock([inner]),
@@ -48,20 +56,20 @@ def _from_babel_terminal(terminal: BabelTerminal) -> NautilusAtom:
 def _from_babel_star(star: BabelStar, parent_name: str) -> NautilusExpr:
     name = stateful_name_generator.generate_for(parent_name)
     inner = _from_babel_atom(star.atom, name)
-    return NautilusExpr(
+    return NautilusExpr.capitalize_name(
         name,
         options=[
-            NautilusBlock([inner, NautilusNonterminal(name)]),
+            NautilusBlock([inner, _create_capital_nonterminal(name)]),
             NautilusBlock([]),
         ],
     )
 
 def _from_babel_plus(plus: BabelPlus, parent_name: str) -> NautilusExpr:
     name = stateful_name_generator.generate_for(parent_name)
-    return NautilusExpr(
+    return NautilusExpr.capitalize_name(
         name,
         options=[
-            NautilusBlock([_from_babel_atom(plus.atom, name), NautilusNonterminal(name)]),
+            NautilusBlock([_from_babel_atom(plus.atom, name), _create_capital_nonterminal(name)]),
             NautilusBlock([_from_babel_atom(plus.atom, name)]),
         ],
     )
@@ -80,7 +88,7 @@ def _from_babel_not(note: BabelNot, parent_name: str) -> NautilusExpr:
                 "BabelNot is only supported over terminal/range atoms; "
                 f"cannot negate a {type(note.atom).__name__} in a context-free grammar"
             )
-    return NautilusExpr(name, options=[NautilusBlock([negated])])
+    return NautilusExpr.capitalize_name(name, options=[NautilusBlock([negated])])
 
 def _from_block_list(block_list: BabelBlockList, parent_name: str) -> NautilusExpr:
     name = stateful_name_generator.generate_for(parent_name)
@@ -99,7 +107,7 @@ def _from_babel_atom(atom: BabelAtom, parent_name: str) -> NautilusAtom:
         case BabelNot():
             return _from_babel_not(atom, parent_name)
         case BabelNonterminal():
-            return NautilusNonterminal(atom.nonterminal)
+            return _create_capital_nonterminal(atom.nonterminal)
         case BabelBlockList():
             return _from_block_list(atom, parent_name)
         # TODO: Add Block List
@@ -117,7 +125,7 @@ def _make_rule(name: str, production: BabelBlockList) -> NautilusExpr:
     options = [
         _from_block(block, name) for block in production.opts
     ]
-    return NautilusExpr(
+    return NautilusExpr.capitalize_name(
         name,
         options
     )
