@@ -8,13 +8,15 @@ import dataclasses
 import json
 import re
 import subprocess
-import sys
 import tempfile
 from collections import defaultdict
 from pathlib import Path
 
+from prettytable import PrettyTable
+from tqdm import tqdm
+
 GRAMMARS_V4_URL = "https://github.com/antlr/grammars-v4"
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 FUZZER_DIR = REPO_ROOT / "test" / "nautilus-antlr-coverage-fuzzer"
 FUZZER_BIN = FUZZER_DIR / "target" / "release" / "nautilus-antlr-coverage-fuzzer"
 
@@ -98,11 +100,6 @@ def run_fuzzer(nautilus_grammar: Path, unit: GrammarUnit, repetitions: int) -> d
     return json.loads(result.stdout.strip().splitlines()[-1])
 
 
-def _last_line(text: str) -> str:
-    lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
-    return lines[-1] if lines else text.strip()
-
-
 def evaluate_unit(unit: GrammarUnit, repetitions: int, work_dir: Path) -> dict:
     start_symbol = first_parser_rule(unit)
     if start_symbol is None:
@@ -113,9 +110,9 @@ def evaluate_unit(unit: GrammarUnit, repetitions: int, work_dir: Path) -> dict:
         translate_to_nautilus(unit, start_symbol, nautilus_grammar)
         report = run_fuzzer(nautilus_grammar, unit, repetitions)
     except subprocess.CalledProcessError as err:
-        return {"name": unit.name, "status": "error", "reason": _last_line(err.stderr or str(err))}
+        return {"name": unit.name, "status": "error", "reason": (err.stderr or str(err)).strip()}
     except Exception as err:  # noqa: BLE001 - every failure is a data point for the score
-        return {"name": unit.name, "status": "error", "reason": _last_line(str(err))}
+        return {"name": unit.name, "status": "error", "reason": str(err).strip()}
 
     return {"name": unit.name, "status": "ok", **report}
 
@@ -133,11 +130,25 @@ def summarize(results: list[dict]) -> dict:
 
 
 def report(results: list[dict]) -> None:
+    table = PrettyTable()
+    table.field_names = ["Grammar", "Status", "Coverage", "Rules", "Details"]
+    table.align["Grammar"] = "l"
+    table.align["Details"] = "l"
+    table.max_width["Details"] = 80
+
     for r in results:
         if r["status"] == "ok":
-            print(f"[ok]      {r['name']:<40} coverage={r['coverage']:.2%} ({r['visited_rules']}/{r['total_rules']} rules)")
+            table.add_row([
+                r["name"],
+                r["status"],
+                f"{r['coverage']:.2%}",
+                f"{r['visited_rules']}/{r['total_rules']}",
+                "",
+            ])
         else:
-            print(f"[{r['status']:<7}] {r['name']:<40} {r.get('reason', '')}")
+            table.add_row([r["name"], r["status"], "-", "-", r.get("reason", "")])
+
+    print(table)
 
     summary = summarize(results)
     print()
@@ -173,10 +184,6 @@ def main() -> None:
         work_dir = tmp_path / "nautilus-grammars"
         work_dir.mkdir(exist_ok=True)
 
-        results = [evaluate_unit(unit, args.repetitions, work_dir) for unit in units]
+        results = [evaluate_unit(unit, args.repetitions, work_dir) for unit in tqdm(units)]
 
     report(results)
-
-
-if __name__ == "__main__":
-    sys.exit(main())

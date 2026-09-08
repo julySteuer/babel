@@ -9,7 +9,11 @@ dependencies = [
 ]
 
 [tool.uv.workspace]
-members = ["packages/*", "translators/*"]
+members = [
+    "packages/*",
+    "translators/*",
+    "test/nautilus-antlr-test",
+]
 
 [build-system]
 requires = ["hatchling"]
