@@ -7,6 +7,7 @@ use libafl::inputs::nautilus::NautilusInput;
 use libafl_bolts::tuples::RefIndexable;
 
 use crate::antlr;
+use crate::antlr::TokenVocabulary;
 use crate::observer::AntlrTraceObserver;
 
 /// "Runs the target" by unparsing the generated tree and feeding it to `antlr4-parse`,
@@ -15,6 +16,7 @@ pub struct AntlrParseExecutor<'a> {
     grammar_paths: &'a [PathBuf],
     start_rule: &'a str,
     context: &'a NautilusContext,
+    vocabulary: TokenVocabulary,
     observers: (AntlrTraceObserver, ()),
     bytes: Vec<u8>,
 }
@@ -25,6 +27,7 @@ impl<'a> AntlrParseExecutor<'a> {
             grammar_paths,
             start_rule,
             context,
+            vocabulary: antlr::build_token_vocabulary(grammar_paths),
             observers: (AntlrTraceObserver::new(), ()),
             bytes: Vec::new(),
         }
@@ -42,7 +45,7 @@ impl<EM, S, Z> Executor<EM, NautilusInput, S, Z> for AntlrParseExecutor<'_> {
         input.unparse(self.context, &mut self.bytes);
         let generated_input = String::from_utf8_lossy(&self.bytes);
         self.observers.0.visited =
-            antlr::trace_visited_rules(self.grammar_paths, self.start_rule, &generated_input);
+            antlr::trace_visited_rules(self.grammar_paths, self.start_rule, &generated_input, &self.vocabulary);
         Ok(ExitKind::Ok)
     }
 }

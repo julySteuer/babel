@@ -4,3 +4,5 @@ _generated
 dist
 gen
 .idea
+
+naut-test.py

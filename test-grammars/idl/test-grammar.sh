@@ -1,0 +1,1 @@
+uv run babel-cli translate -i IDL.g4 -o naut-test.py -s specification

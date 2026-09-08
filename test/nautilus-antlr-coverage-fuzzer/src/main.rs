@@ -61,12 +61,13 @@ fn main() {
         })
         .collect();
 
-    let all_rules = antlr::parser_rule_names(&antlr_sources);
-    let start_rule = all_rules
+    let parser_rules = antlr::parser_rule_names(&antlr_sources);
+    let start_rule = parser_rules
         .first()
         .expect("no parser rules found in the antlr grammar(s)")
         .clone();
-    let total_rules: HashSet<&String> = all_rules.iter().collect();
+    let lexer_rules = antlr::lexer_rule_names(&antlr_sources);
+    let total_rules: HashSet<String> = parser_rules.into_iter().chain(lexer_rules).collect();
 
     let context = NautilusContext::from_file(TREE_DEPTH, nautilus_grammar_path)
         .expect("failed to load nautilus grammar");

@@ -1,0 +1,1 @@
+uv run babel-cli translate -i modelica.g4 -o naut-test.py -s stored_definition
