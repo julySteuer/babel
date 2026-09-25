@@ -12,7 +12,7 @@ from babel_ir.model import (
     BabelNumRange,
     BabelStar,
     BabelPlus,
-    BabelNot, BabelRawRegex,
+    BabelNot, BabelRawRegex, BabelWildcard,
 )
 
 from babel_nautilus.model.nautilus_ir import (
@@ -25,10 +25,6 @@ from babel_nautilus.model.nautilus_ir import (
 )
 from babel_nautilus.name_generator import stateful_name_generator
 from babel_nautilus.shared import capitalize_name
-
-
-def _escape_terminal(terminal: str) -> str:
-    pass
 
 def _create_capital_nonterminal(nonterminal: str) -> NautilusNonterminal:
     return NautilusNonterminal(capitalize_name(nonterminal))
@@ -110,7 +106,6 @@ def _from_babel_atom(atom: BabelAtom, parent_name: str) -> NautilusAtom:
             return _create_capital_nonterminal(atom.nonterminal)
         case BabelBlockList():
             return _from_block_list(atom, parent_name)
-        # TODO: Add Block List
 
 def _from_block(block: BabelBlock, parent_name: str) -> NautilusBlock:
     # TODO: Determine which block by checking the children. If they are just regex they can be combined otherwise new rule

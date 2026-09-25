@@ -1,0 +1,17 @@
+just_dir := justfile_dir()
+root_dir := canonicalize(just_dir / '..')
+
+fuzzer_dir := root_dir / 'nautilus-antlr-coverage-fuzzer'
+manifest_file := fuzzer_dir / 'Cargo.toml'
+fuzzer_bin := fuzzer_dir / 'target' / 'release' / 'nautilus-antlr-coverage-fuzzer'
+translator_output := just_dir / 'naut-test.py'
+
+test grammar repititions: (compile grammar) compile_fuzzer
+    {{fuzzer_bin}} naut-test.py {{repititions}} `echo {{grammar}}/*.g4`
+    rm -rf {{translator_output}}
+
+compile_fuzzer:
+    cargo build --manifest-path={{manifest_file}}
+
+compile grammar: # Add default grammar path 
+    uv run babel-cli translate -i `echo {{grammar}}/*.g4` -o {{translator_output}} -s `cat {{grammar}}/startsymbol`

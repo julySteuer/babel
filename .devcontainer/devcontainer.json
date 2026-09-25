@@ -9,7 +9,10 @@
 	"features": {
       "ghcr.io/devcontainers/features/common-utils:2": {},
       "ghcr.io/devcontainers/features/java": {},
-      "ghcr.io/devcontainers/features/rust:1": {}
+      "ghcr.io/devcontainers/features/rust:1": {},
+      "ghcr.io/DaniDeer/devcontainer-features/just:1": {
+	    "version": "1.47.1"
+      }
     },
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.

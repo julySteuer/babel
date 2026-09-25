@@ -18,6 +18,23 @@ from babel_nautilus.model.rule import (
 from babel_nautilus.name_generator import stateful_name_generator
 from babel_nautilus.shared import make_nonterminal_str, capitalize_name
 
+def _escape_character(char: str) -> str:
+    match char:
+        case '"':
+            return '\\"'
+        case '{':
+            return '\\{'
+        case '}':
+            return '\\}'
+        case _:
+            return char
+
+def _escape_terminal(terminal: str) -> str:
+    escaped_list = [
+        _escape_character(char) for char in terminal
+    ]
+
+    return "".join(escaped_list)
 
 def _flatten[T](l: list[list[T]]) -> list[T]:
     return list(itertools.chain(*l))
@@ -25,7 +42,7 @@ def _flatten[T](l: list[list[T]]) -> list[T]:
 def _decode_atom(atom: NautilusAtom) -> tuple[Atom, list[Rule]]:
     match atom:
         case NautilusTerminal(terminal=terminal):
-            return TerminalAtom(terminal), list()
+            return TerminalAtom(_escape_terminal(terminal)), list()
         case NautilusNonterminal(nonterminal=name):
             return NonterminalAtom(make_nonterminal_str(name)), list()
         case NautilusRegex(regex=regex):
@@ -48,8 +65,10 @@ def _construct_block_with_additional_references(child_atom: Atom, name: str) -> 
     match child_atom:
         case RegexAtom():
             return _construct_rule_for_regex(child_atom, name)
-        case NonterminalAtom(refferer=text) | TerminalAtom(content=text):
+        case NonterminalAtom(refferer=text):
             return text, None
+        case TerminalAtom(content=text):
+            return _escape_terminal(text), None
 
 def _construct_block(child_atoms: list[Atom], name: str) -> tuple[Block, list[Rule]]:
     # TODO: Make this more nuanced. So that empty rules with child_atoms == [] a ruleBlock with an empty list
