@@ -6,10 +6,9 @@ from babel_antlr.model.antlr_ir import (
     AntlrBlockList,
     AntlrRawRegex,
     AntlrLexerWildcard,
-    RegularAntlrProduction,
     AntlrAtom,
     AntlrBlock,
-    AntlrLexerNonterminal,
+    AntlrLexerNonterminal, RegularLexerProduction,
 )
 from babel_antlr.shared_encoder import (
     encode_ebnf_suffix_with_inner,
@@ -67,6 +66,6 @@ def encode_lexer_rule(lexer_rule: ANTLRv4Parser.LexerRuleSpecContext) -> tuple[s
     name = lexer_rule.TOKEN_REF().getText()
     lexer_alt_list = lexer_rule.lexerRuleBlock().lexerAltList()
     babel_block_list = _encode_lexer_alt_list(lexer_alt_list)
-    return name, AntlrLexerProduction(RegularAntlrProduction(babel_block_list)) # If it is regular or acted upon shall be added next
+    return name, RegularLexerProduction(babel_block_list) # If it is regular or acted upon shall be added next
 
 __all__ = ['encode_lexer_rule']

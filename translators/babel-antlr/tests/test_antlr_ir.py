@@ -1,10 +1,12 @@
 from babel_antlr.model.antlr_ir import (
+    ActedLexerProduction,
     AntlrBlock,
     AntlrBlockList,
     AntlrCharRange,
     AntlrIr,
     AntlrLexerNonterminal,
     AntlrLexerProduction,
+    AntlrProduction,
     AntlrLexerWildcard,
     AntlrNot,
     AntlrOptional,
@@ -15,18 +17,20 @@ from babel_antlr.model.antlr_ir import (
     AntlrRawRegex,
     AntlrStar,
     AntlrSymbol,
-    RegularAntlrProduction,
+    RegularLexerProduction,
 )
+
+import pytest
 
 from ._helpers import rule, to_antlr_ir
 
 
-def lexer(*alts: list) -> AntlrLexerProduction:
-    return AntlrLexerProduction(RegularAntlrProduction(AntlrBlockList([AntlrBlock(a) for a in alts])))
+def lexer(*alts: list) -> RegularLexerProduction:
+    return RegularLexerProduction(AntlrBlockList([AntlrBlock(a) for a in alts]))
 
 
 def parser(*alts: list) -> AntlrParserProduction:
-    return AntlrParserProduction(RegularAntlrProduction(AntlrBlockList([AntlrBlock(a) for a in alts])))
+    return AntlrParserProduction(AntlrBlockList([AntlrBlock(a) for a in alts]))
 
 
 # --- grammar level -----------------------------------------------------------
@@ -42,6 +46,22 @@ def test_rules_are_keyed_by_name_and_typed():
     assert isinstance(ir.production_rules["prog"], AntlrParserProduction)
     assert isinstance(ir.production_rules["expr"], AntlrParserProduction)
     assert isinstance(ir.production_rules["INT"], AntlrLexerProduction)
+
+
+def test_production_type_hierarchy():
+    ir = to_antlr_ir("grammar T;\np: A ;\nA: 'a' ;\n")
+    lexer_rule, parser_rule = ir.production_rules["A"], ir.production_rules["p"]
+    assert isinstance(lexer_rule, RegularLexerProduction)
+    assert isinstance(lexer_rule, AntlrLexerProduction)
+    assert not isinstance(lexer_rule, ActedLexerProduction)
+    assert isinstance(parser_rule, AntlrParserProduction)
+    assert not isinstance(parser_rule, AntlrLexerProduction)
+    assert isinstance(parser_rule, AntlrProduction)
+
+
+def test_production_holds_block_list_directly():
+    prod = rule("r: a ;", "r")
+    assert isinstance(prod.production, AntlrBlockList)
 
 
 def test_plain_rules_are_not_action_rules():
@@ -193,4 +213,14 @@ INT: [0-9]+ ;
         [AntlrParserNonterminal("expr"), AntlrParserNonterminal("EOF")]
     )
     assert ir.production_rules["INT"] == lexer([AntlrPlus(AntlrRawRegex("[0-9]"))])
-    assert len(ir.production_rules["expr"].production.production.opts) == 3
+    assert len(ir.production_rules["expr"].production.opts) == 3
+
+
+# --- lexer commands (not encoded yet) -----------------------------------------
+
+
+@pytest.mark.xfail(reason="lexer commands (-> skip) are not encoded yet; always RegularLexerProduction", strict=True)
+def test_lexer_skip_command_is_acted_production():
+    ir = to_antlr_ir("grammar T;\nWS: ' '+ -> skip ;\n")
+    assert isinstance(ir.production_rules["WS"], ActedLexerProduction)
+    assert ir.action_rules == ["WS"]

@@ -1,6 +1,6 @@
 from babel_antlr._generated.ANTLRv4Parser import ANTLRv4Parser
 from babel_antlr.lexer_encoder import encode_lexer_rule
-from babel_antlr.model.antlr_ir import AntlrIr, AntlrProduction, ActedAntlrProduction
+from babel_antlr.model.antlr_ir import AntlrIr, AntlrProduction, ActedLexerProduction
 from babel_antlr.parser_encoder import encode_parser_rule
 from babel_antlr.util import exec_first_valid
 
@@ -19,7 +19,7 @@ def _encode_rules(rules: ANTLRv4Parser.ParserRuleSpecContext) -> list[tuple[str,
     return [_encode_rule(rule) for rule in children]
 
 def _is_action_production(production: AntlrProduction) -> bool:
-    return isinstance(production, ActedAntlrProduction)
+    return isinstance(production, ActedLexerProduction)
 
 def encode_to_antlr_ir(grammar_spec_context: ANTLRv4Parser.GrammarSpecContext) -> AntlrIr:
     productions = _encode_rules(grammar_spec_context.rules())

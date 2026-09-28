@@ -5,7 +5,6 @@ from babel_antlr.model.antlr_ir import (
     AntlrBlockList,
     AntlrParserProduction,
     AntlrParserWildcard,
-    RegularAntlrProduction,
     AntlrParserNonterminal,
 )
 from babel_antlr.shared_encoder import (
@@ -14,9 +13,6 @@ from babel_antlr.shared_encoder import (
     encode_terminal_def,
 )
 from babel_antlr.util import exec_first_valid
-from babel_ir.model import (
-    BabelNonterminal,
-)
 
 # TODO: Untangle All rules that have more than one argument. Leads to spaghetti code
 
@@ -118,9 +114,7 @@ def encode_parser_rule(
 ) -> tuple[str, AntlrParserProduction]:
     name = parser_rule.RULE_REF().getText()
     return name, AntlrParserProduction(
-        RegularAntlrProduction(
             AntlrBlockList(_encode_rule_alt_list(parser_rule.ruleBlock().ruleAltList()))
-        )
     )
 
 

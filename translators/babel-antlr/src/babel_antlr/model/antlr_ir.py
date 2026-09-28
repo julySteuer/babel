@@ -89,28 +89,26 @@ class AntlrSkip:
     pass
 
 AntlrAction = AntlrChannel | AntlrSkip
+
+# -> rules and such are only permitted in lexer rules so only lexer rules need a channel argument
 @dataclass
-class ProductionContainer(ABC):
+class AntlrProduction(ABC):
     production: AntlrBlockList
 
 @dataclass
-class AntlrProduction(ABC):
-    production: ProductionContainer
+class AntlrLexerProduction(AntlrProduction, ABC):
+    pass
 
 @dataclass
-class AntlrLexerProduction(AntlrProduction):
+class ActedLexerProduction(AntlrLexerProduction):
+    channel: AntlrAction
+
+@dataclass
+class RegularLexerProduction(AntlrLexerProduction):
     pass
 
 @dataclass
 class AntlrParserProduction(AntlrProduction):
-    pass
-
-@dataclass
-class ActedAntlrProduction(ProductionContainer):
-    channel: AntlrAction
-
-@dataclass
-class RegularAntlrProduction(ProductionContainer):
     pass
 
 @dataclass
