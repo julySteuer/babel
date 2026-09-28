@@ -20,7 +20,6 @@ class BabelSymbol(BabelTerminal):
 class BabelNonterminal(BabelAtom):
     nonterminal: str
 
-
 @dataclass
 class BabelOptional(BabelAtom):
     atom: BabelAtom  # Change this to aceppt block like structure
@@ -32,14 +31,6 @@ class BabelStar(BabelAtom):
 @dataclass
 class BabelPlus(BabelAtom):
     atom: BabelAtom
-
-@dataclass
-class BabelNot(BabelAtom):
-    atom: BabelAtom
-
-@dataclass
-class BabelWildcard(BabelAtom):
-    pass
 
 @dataclass
 class BabelRange[RangeType](BabelTerminal, ABC):

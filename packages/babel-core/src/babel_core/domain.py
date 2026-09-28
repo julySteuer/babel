@@ -1,4 +1,4 @@
-from babel_antlr.encoder import encode
+from babel_antlr.antlr_ir_encoder import encode
 from babel_ir.domain import merge
 from babel_nautilus.decoder import decode
 

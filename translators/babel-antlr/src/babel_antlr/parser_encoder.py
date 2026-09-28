@@ -1,26 +1,34 @@
 from babel_antlr._generated.ANTLRv4Parser import ANTLRv4Parser
+from babel_antlr.model.antlr_ir import (
+    AntlrAtom,
+    AntlrBlock,
+    AntlrBlockList,
+    AntlrParserProduction,
+    AntlrParserWildcard,
+    RegularAntlrProduction,
+    AntlrParserNonterminal,
+)
 from babel_antlr.shared_encoder import (
-    ENCODE_WILDCARD_IN_EXEC_FIRST_VALID,
     encode_ebnf_suffix_with_inner,
     encode_not_set,
     encode_terminal_def,
 )
 from babel_antlr.util import exec_first_valid
 from babel_ir.model import (
-    BabelAtom,
-    BabelBlock,
-    BabelBlockList,
     BabelNonterminal,
-    BabelProduction,
 )
 
 # TODO: Untangle All rules that have more than one argument. Leads to spaghetti code
 
 
+def _encode_alt_list(alt_list: ANTLRv4Parser.AltListContext) -> AntlrBlockList:
+    return AntlrBlockList(list(map(_encode_alternative, alt_list.alternative())))
+
+
 def _encode_labeled_element(
     labeled_element: ANTLRv4Parser.LabeledElementContext,
     ebnf_suffix: ANTLRv4Parser.EbnfSuffixContext | None,
-) -> BabelAtom:
+) -> AntlrAtom:
     atom = labeled_element.atom()
     block = labeled_element.block()
 
@@ -29,16 +37,17 @@ def _encode_labeled_element(
         (
             block,
             lambda bl: encode_ebnf_suffix_with_inner(
-                ebnf_suffix, BabelBlockList(_encode_alt_list(bl.altList()))
+                ebnf_suffix,
+                _encode_alt_list(bl.altList())
             ),
         ),
     )
 
 
-def _encode_ebnf(ebnf: ANTLRv4Parser.EbnfContext) -> BabelAtom:
+def _encode_ebnf(ebnf: ANTLRv4Parser.EbnfContext) -> AntlrAtom:
     block = ebnf.block()
 
-    inner = BabelBlockList(
+    inner = AntlrBlockList(
         list(map(_encode_alternative, block.altList().alternative()))
     )  # Parse this to a BabelBlockSet so inline Options
     if ebnf.blockSuffix() is not None:
@@ -47,27 +56,27 @@ def _encode_ebnf(ebnf: ANTLRv4Parser.EbnfContext) -> BabelAtom:
     return inner
 
 
-def _encode_ruleref(ruleref: ANTLRv4Parser.RulerefContext) -> BabelNonterminal:
+def _encode_ruleref(ruleref: ANTLRv4Parser.RulerefContext) -> AntlrParserNonterminal:
     content = (
         ruleref.RULE_REF().getText()
     )  # I suppose non terminal here but who knows. Testing this is absolutly horrible
     # Ignore Action block and elementOptions for now
-    return BabelNonterminal(content)
+    return AntlrParserNonterminal(content)
 
 
 def _encode_atom(
     atom: ANTLRv4Parser.AtomContext, ebnf_suffix: ANTLRv4Parser.EbnfSuffixContext | None
-) -> BabelAtom:
+) -> AntlrAtom:
     terminal_def = atom.terminalDef()
     ruleref = atom.ruleref()
     not_set = atom.notSet()
     wildcard = atom.wildcard()
 
     inner = exec_first_valid(
-        (terminal_def, encode_terminal_def),
+        (terminal_def, lambda elem: encode_terminal_def(elem, AntlrParserNonterminal)),
         (ruleref, _encode_ruleref),
-        (not_set, encode_not_set),
-        (wildcard, ENCODE_WILDCARD_IN_EXEC_FIRST_VALID),
+        (not_set, lambda elem: encode_not_set(elem, AntlrParserNonterminal)),
+        (wildcard, lambda _: AntlrParserWildcard()),
     )
 
     return encode_ebnf_suffix_with_inner(ebnf_suffix, inner)
@@ -75,7 +84,7 @@ def _encode_atom(
 
 def _encode_element(
     element: ANTLRv4Parser.ElementContext,
-) -> BabelAtom:  # Have to rethink if this is a good idea to return a Atom at this stage
+) -> AntlrAtom:  # Have to rethink if this is a good idea to return a Atom at this stage
     labeled_element = element.labeledElement()
     atom = element.atom()
     ebnf = element.ebnf()
@@ -90,15 +99,15 @@ def _encode_element(
     )
 
 
-def _encode_alternative(alternative: ANTLRv4Parser.AlternativeContext) -> BabelBlock:
-    return BabelBlock([_encode_element(elem) for elem in alternative.element()])
+def _encode_alternative(alternative: ANTLRv4Parser.AlternativeContext) -> AntlrBlock:
+    return AntlrBlock([_encode_element(elem) for elem in alternative.element()])
 
 
-def _encode_labeled_alt(alt: ANTLRv4Parser.LabeledAltContext) -> BabelBlock:
+def _encode_labeled_alt(alt: ANTLRv4Parser.LabeledAltContext) -> AntlrBlock:
     return _encode_alternative(alt.alternative())
 
 
-def _encode_alt_list(alt_list: ANTLRv4Parser.RuleAltListContext) -> list[BabelBlock]:
+def _encode_rule_alt_list(alt_list: ANTLRv4Parser.RuleAltListContext) -> list[AntlrBlock]:
     return [
         _encode_labeled_alt(alt) for alt in alt_list.labeledAlt()
     ]  # Gets all alts even first one
@@ -106,10 +115,12 @@ def _encode_alt_list(alt_list: ANTLRv4Parser.RuleAltListContext) -> list[BabelBl
 
 def encode_parser_rule(
     parser_rule: ANTLRv4Parser.ParserRuleSpecContext,
-) -> tuple[str, BabelProduction]:
+) -> tuple[str, AntlrParserProduction]:
     name = parser_rule.RULE_REF().getText()
-    return name, BabelProduction(
-        BabelBlockList(_encode_alt_list(parser_rule.ruleBlock().ruleAltList()))
+    return name, AntlrParserProduction(
+        RegularAntlrProduction(
+            AntlrBlockList(_encode_rule_alt_list(parser_rule.ruleBlock().ruleAltList()))
+        )
     )
 
 
