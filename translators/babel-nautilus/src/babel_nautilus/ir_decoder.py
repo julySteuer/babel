@@ -1,6 +1,5 @@
 from babel_ir.model import (
     BabelIr,
-    BabelProduction,
     BabelBlockList,
     BabelBlock,
     BabelAtom,
@@ -12,7 +11,7 @@ from babel_ir.model import (
     BabelNumRange,
     BabelStar,
     BabelPlus,
-    BabelNot, BabelRawRegex, BabelWildcard,
+    BabelRawRegex,
 )
 
 from babel_nautilus.model.nautilus_ir import (
@@ -23,8 +22,9 @@ from babel_nautilus.model.nautilus_ir import (
     NautilusNonterminal,
     NautilusRegex,
 )
-from babel_nautilus.name_generator import stateful_name_generator
 from babel_nautilus.shared import capitalize_name
+
+from babel_shared.name_generator import stateful_name_generator
 
 def _create_capital_nonterminal(nonterminal: str) -> NautilusNonterminal:
     return NautilusNonterminal(capitalize_name(nonterminal))

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from antlr4.tree.Tree import TerminalNode
 
 from babel_antlr._generated.ANTLRv4Parser import ANTLRv4Parser
@@ -8,13 +10,18 @@ from babel_antlr.model.antlr_ir import (
     AntlrLexerWildcard,
     AntlrAtom,
     AntlrBlock,
-    AntlrLexerNonterminal, RegularLexerProduction,
+    AntlrLexerNonterminal,
+    AntlrAction,
+    AntlrSkip,
+    AntlrChannel,
+    RegularAntlrLexerBlock,
+    ActedAntlrLexerBlock,
 )
 from babel_antlr.shared_encoder import (
     encode_ebnf_suffix_with_inner,
     encode_terminal_def,
     encode_character_range,
-    encode_not_set,
+    encode_not_set, process_symbol_str,
 )
 from babel_antlr.util import exec_first_valid
 
@@ -54,9 +61,27 @@ def _encode_lexer_element(lexer_element: ANTLRv4Parser.LexerElementContext) -> A
 
     return encode_ebnf_suffix_with_inner(ebnf_suffix, inner)
 
+def _get_channel(lexer_command: ANTLRv4Parser.LexerCommandContext) -> Optional[AntlrAction]:
+    name = lexer_command.lexerCommandName().getText()
+    match name:
+        case "skip":
+            return AntlrSkip()
+        case "channel":
+            return AntlrChannel()
+        case _:
+            return None
+
 def _encode_lexer_alt(lexer_alt: ANTLRv4Parser.LexerAltContext) -> AntlrBlock:
     lexer_elements = lexer_alt.lexerElements().lexerElement()
-    return AntlrBlock([_encode_lexer_element(element) for element in lexer_elements])
+    lexer_commands = lexer_alt.lexerCommands()
+    elements = [_encode_lexer_element(element) for element in lexer_elements]
+    if lexer_commands is None:
+        return RegularAntlrLexerBlock(elements)
+    lexer_commands = lexer_commands.lexerCommand()
+    channel = [ lexer_command for lexer_command in [_get_channel(c) for c in lexer_commands] if lexer_command is not None]
+    if not channel :
+        return RegularAntlrLexerBlock(elements)
+    return ActedAntlrLexerBlock(elements, channel[0]) # TODO: Make this clean
 
 def _encode_lexer_alt_list(lexer_alt_list: ANTLRv4Parser.LexerAltListContext) -> AntlrBlockList:
     lexer_alts = lexer_alt_list.lexerAlt()
@@ -66,6 +91,6 @@ def encode_lexer_rule(lexer_rule: ANTLRv4Parser.LexerRuleSpecContext) -> tuple[s
     name = lexer_rule.TOKEN_REF().getText()
     lexer_alt_list = lexer_rule.lexerRuleBlock().lexerAltList()
     babel_block_list = _encode_lexer_alt_list(lexer_alt_list)
-    return name, RegularLexerProduction(babel_block_list) # If it is regular or acted upon shall be added next
+    return name, AntlrLexerProduction(babel_block_list)
 
 __all__ = ['encode_lexer_rule']

@@ -6,6 +6,7 @@ from babel_antlr.model.antlr_ir import (
     AntlrParserProduction,
     AntlrParserWildcard,
     AntlrParserNonterminal,
+    AntlrParserBlock,
 )
 from babel_antlr.shared_encoder import (
     encode_ebnf_suffix_with_inner,
@@ -96,7 +97,7 @@ def _encode_element(
 
 
 def _encode_alternative(alternative: ANTLRv4Parser.AlternativeContext) -> AntlrBlock:
-    return AntlrBlock([_encode_element(elem) for elem in alternative.element()])
+    return AntlrParserBlock([_encode_element(elem) for elem in alternative.element()])
 
 
 def _encode_labeled_alt(alt: ANTLRv4Parser.LabeledAltContext) -> AntlrBlock:

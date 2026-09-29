@@ -10,6 +10,7 @@ members = [
     "babel-core",
     "babel-ir",
     "babel-nautilus",
+    "babel-shared",
     "nautilus-antlr-test",
 ]
 
@@ -72,12 +73,14 @@ source = { editable = "translators/babel-antlr" }
 dependencies = [
     { name = "antlr4-python3-runtime" },
     { name = "babel-ir" },
+    { name = "babel-shared" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "antlr4-python3-runtime", specifier = ">=4.13.2" },
     { name = "babel-ir", editable = "packages/babel-ir" },
+    { name = "babel-shared", editable = "packages/babel-shared" },
 ]
 
 [[package]]
@@ -119,10 +122,19 @@ version = "0.1.0"
 source = { editable = "translators/babel-nautilus" }
 dependencies = [
     { name = "babel-ir" },
+    { name = "babel-shared" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "babel-ir", editable = "packages/babel-ir" }]
+requires-dist = [
+    { name = "babel-ir", editable = "packages/babel-ir" },
+    { name = "babel-shared", editable = "packages/babel-shared" },
+]
+
+[[package]]
+name = "babel-shared"
+version = "0.1.0"
+source = { editable = "packages/babel-shared" }
 
 [[package]]
 name = "colorama"

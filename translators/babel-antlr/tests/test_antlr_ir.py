@@ -1,12 +1,14 @@
 from babel_antlr.model.antlr_ir import (
-    ActedLexerProduction,
+    ActedAntlrLexerBlock,
+    AntlrChannel,
+    AntlrParserBlock,
+    AntlrSkip,
     AntlrBlock,
     AntlrBlockList,
     AntlrCharRange,
     AntlrIr,
     AntlrLexerNonterminal,
     AntlrLexerProduction,
-    AntlrProduction,
     AntlrLexerWildcard,
     AntlrNot,
     AntlrOptional,
@@ -17,7 +19,7 @@ from babel_antlr.model.antlr_ir import (
     AntlrRawRegex,
     AntlrStar,
     AntlrSymbol,
-    RegularLexerProduction,
+    RegularAntlrLexerBlock,
 )
 
 import pytest
@@ -25,19 +27,31 @@ import pytest
 from ._helpers import rule, to_antlr_ir
 
 
-def lexer(*alts: list) -> RegularLexerProduction:
-    return RegularLexerProduction(AntlrBlockList([AntlrBlock(a) for a in alts]))
+def lexer(*alts: list) -> AntlrLexerProduction:
+    return AntlrLexerProduction(AntlrBlockList([RegularAntlrLexerBlock(a) for a in alts]))
 
 
 def parser(*alts: list) -> AntlrParserProduction:
-    return AntlrParserProduction(AntlrBlockList([AntlrBlock(a) for a in alts]))
+    return AntlrParserProduction(AntlrBlockList([AntlrParserBlock(a) for a in alts]))
+
+
+def _atoms(atoms: tuple) -> list:
+    return list(atoms[0]) if len(atoms) == 1 and isinstance(atoms[0], list) else list(atoms)
+
+
+def lblock(*atoms) -> RegularAntlrLexerBlock:
+    return RegularAntlrLexerBlock(_atoms(atoms))
+
+
+def pblock(*atoms) -> AntlrParserBlock:
+    return AntlrParserBlock(_atoms(atoms))
 
 
 # --- grammar level -----------------------------------------------------------
 
 
 def test_empty_grammar():
-    assert to_antlr_ir("grammar Empty;") == AntlrIr({}, [])
+    assert to_antlr_ir("grammar Empty;") == AntlrIr({}, {})
 
 
 def test_rules_are_keyed_by_name_and_typed():
@@ -51,21 +65,25 @@ def test_rules_are_keyed_by_name_and_typed():
 def test_production_type_hierarchy():
     ir = to_antlr_ir("grammar T;\np: A ;\nA: 'a' ;\n")
     lexer_rule, parser_rule = ir.production_rules["A"], ir.production_rules["p"]
-    assert isinstance(lexer_rule, RegularLexerProduction)
     assert isinstance(lexer_rule, AntlrLexerProduction)
-    assert not isinstance(lexer_rule, ActedLexerProduction)
+    assert not isinstance(lexer_rule, AntlrParserProduction)
     assert isinstance(parser_rule, AntlrParserProduction)
     assert not isinstance(parser_rule, AntlrLexerProduction)
-    assert isinstance(parser_rule, AntlrProduction)
 
 
 def test_production_holds_block_list_directly():
-    prod = rule("r: a ;", "r")
-    assert isinstance(prod.production, AntlrBlockList)
+    assert isinstance(rule("r: a ;", "r").production, AntlrBlockList)
 
 
-def test_plain_rules_are_not_action_rules():
-    assert to_antlr_ir("grammar T;\na: B ;\nB: 'b' ;\n").action_rules == []
+def test_block_types_follow_rule_kind():
+    ir = to_antlr_ir("grammar T;\np: a | b ;\nA: 'a' | 'b' ;\n")
+    assert all(type(b) is AntlrParserBlock for b in ir.production_rules["p"].production.opts)
+    assert all(type(b) is RegularAntlrLexerBlock for b in ir.production_rules["A"].production.opts)
+
+
+def test_plain_rules_have_no_action_blocks():
+    ir = to_antlr_ir("grammar T;\na: B ;\nB: 'b' ;\n")
+    assert all(blocks == [] for blocks in ir.action_blocks.values())
 
 
 # --- lexer rules -------------------------------------------------------------
@@ -107,7 +125,7 @@ def test_lexer_suffixes():
 
 def test_lexer_block_with_suffix():
     assert rule("A: ('a' | 'b')+ ;", "A") == lexer(
-        [AntlrPlus(AntlrBlockList([AntlrBlock([AntlrSymbol("a")]), AntlrBlock([AntlrSymbol("b")])]))]
+        [AntlrPlus(AntlrBlockList([lblock([AntlrSymbol("a")]), lblock([AntlrSymbol("b")])]))]
     )
 
 
@@ -162,13 +180,13 @@ def test_parser_suffixes():
 
 def test_parser_block_without_suffix():
     assert rule("r: (a | b) ;", "r") == parser(
-        [AntlrBlockList([AntlrBlock([AntlrParserNonterminal("a")]), AntlrBlock([AntlrParserNonterminal("b")])])]
+        [AntlrBlockList([pblock([AntlrParserNonterminal("a")]), pblock([AntlrParserNonterminal("b")])])]
     )
 
 
 def test_parser_block_with_suffix():
     assert rule("r: (a b)* ;", "r") == parser(
-        [AntlrStar(AntlrBlockList([AntlrBlock([AntlrParserNonterminal("a"), AntlrParserNonterminal("b")])]))]
+        [AntlrStar(AntlrBlockList([pblock([AntlrParserNonterminal("a"), AntlrParserNonterminal("b")])]))]
     )
 
 
@@ -190,7 +208,7 @@ def test_parser_labeled_element_with_suffix():
 
 def test_parser_labeled_block():
     assert rule("r: l=(a | b) ;", "r") == parser(
-        [AntlrBlockList([AntlrBlock([AntlrParserNonterminal("a")]), AntlrBlock([AntlrParserNonterminal("b")])])]
+        [AntlrBlockList([pblock([AntlrParserNonterminal("a")]), pblock([AntlrParserNonterminal("b")])])]
     )
 
 
@@ -216,11 +234,45 @@ INT: [0-9]+ ;
     assert len(ir.production_rules["expr"].production.opts) == 3
 
 
-# --- lexer commands (not encoded yet) -----------------------------------------
+# --- lexer commands ------------------------------------------------------------
 
 
-@pytest.mark.xfail(reason="lexer commands (-> skip) are not encoded yet; always RegularLexerProduction", strict=True)
-def test_lexer_skip_command_is_acted_production():
-    ir = to_antlr_ir("grammar T;\nWS: ' '+ -> skip ;\n")
-    assert isinstance(ir.production_rules["WS"], ActedLexerProduction)
-    assert ir.action_rules == ["WS"]
+def acted(cmd, *atoms) -> ActedAntlrLexerBlock:
+    return ActedAntlrLexerBlock(list(atoms), cmd)
+
+
+def test_skip_command():
+    prod = rule("WS: ' '+ -> skip ;", "WS")
+    assert prod == AntlrLexerProduction(
+        AntlrBlockList([acted(AntlrSkip(), AntlrPlus(AntlrSymbol(" ")))])
+    )
+
+
+def test_channel_command():
+    prod = rule("C: 'c' -> channel(HIDDEN) ;", "C")
+    assert prod == AntlrLexerProduction(
+        AntlrBlockList([acted(AntlrChannel(), AntlrSymbol("c"))])
+    )
+
+
+def test_commands_apply_per_outermost_alternative():
+    prod = rule("A: 'a' -> skip | 'b' ;", "A")
+    assert prod == AntlrLexerProduction(
+        AntlrBlockList([acted(AntlrSkip(), AntlrSymbol("a")), lblock(AntlrSymbol("b"))])
+    )
+
+
+def test_command_after_block_applies_to_whole_alternative():
+    prod = rule("A: ('a' | 'b') -> skip ;", "A")
+    inner = AntlrBlockList([lblock(AntlrSymbol("a")), lblock(AntlrSymbol("b"))])
+    assert prod == AntlrLexerProduction(AntlrBlockList([acted(AntlrSkip(), inner)]))
+
+
+def test_other_commands_are_regular_blocks():
+    assert rule("A: 'a' -> mode(M) ;", "A") == lexer([AntlrSymbol("a")])
+
+
+def test_action_blocks_are_collected_per_rule():
+    ir = to_antlr_ir("grammar T;\nWS: ' ' -> skip | '\\t' ;\nA: 'a' ;\n")
+    assert ir.action_blocks["WS"] == [acted(AntlrSkip(), AntlrSymbol(" "))]
+    assert ir.action_blocks["A"] == []

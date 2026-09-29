@@ -4,3 +4,5 @@ from babel_ir.model import BabelIr
 
 def decode_antlr_ir_to_babel_ir(antlr_ir: AntlrIr) -> BabelIr:
     pass
+
+__all__ = ["decode_antlr_ir_to_babel_ir"]

@@ -73,12 +73,8 @@ class AntlrRawRegex(AntlrTerminal):
     raw: str
 
 @dataclass
-class AntlrBlock(AntlrAtom):  # block1 | block2 | block3
+class AntlrBlock(AntlrAtom, ABC):  # block1 | block2 | block3
     atoms: list[AntlrAtom]
-
-@dataclass
-class AntlrBlockList(AntlrAtom):
-    opts: list[AntlrBlock]
 
 @dataclass
 class AntlrChannel:
@@ -90,21 +86,33 @@ class AntlrSkip:
 
 AntlrAction = AntlrChannel | AntlrSkip
 
+@dataclass
+class AntlrLexerBlock(AntlrBlock):
+    pass
+
+@dataclass
+class ActedAntlrLexerBlock(AntlrLexerBlock):
+    channel: AntlrAction
+
+@dataclass
+class RegularAntlrLexerBlock(AntlrLexerBlock):
+    pass
+
+@dataclass
+class AntlrParserBlock(AntlrBlock):
+    pass
+
+@dataclass
+class AntlrBlockList(AntlrAtom):
+    opts: list[AntlrBlock]
+
 # -> rules and such are only permitted in lexer rules so only lexer rules need a channel argument
 @dataclass
 class AntlrProduction(ABC):
     production: AntlrBlockList
 
 @dataclass
-class AntlrLexerProduction(AntlrProduction, ABC):
-    pass
-
-@dataclass
-class ActedLexerProduction(AntlrLexerProduction):
-    channel: AntlrAction
-
-@dataclass
-class RegularLexerProduction(AntlrLexerProduction):
+class AntlrLexerProduction(AntlrProduction):
     pass
 
 @dataclass
@@ -114,4 +122,4 @@ class AntlrParserProduction(AntlrProduction):
 @dataclass
 class AntlrIr:
     production_rules: dict[str, AntlrProduction]
-    action_rules: list[str] # Named references for rulesin production_rules
+    action_blocks: dict[str, list[ActedAntlrLexerBlock]] # Named references for rulesin production_rules
