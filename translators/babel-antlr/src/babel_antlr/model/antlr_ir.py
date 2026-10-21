@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 """
 For safety it might be better to have a type (discriminated union) which holds all the LexerAtom and one that holds all the parser Atoms. Currently I think they are all the same but lets see
+Lot of these things here are done bcs lots of info is not available at comptime
 """
 
 class AntlrAtom(ABC):
@@ -19,7 +20,7 @@ class AntlrSymbol(AntlrTerminal):
 @dataclass
 class AntlrNonterminal(AntlrAtom, ABC):
     nonterminal: str
-
+# TODO: These rules might not be nessesary due to them requireing swmantic analysis
 @dataclass
 class AntlrLexerNonterminal(AntlrNonterminal):
     pass
@@ -42,7 +43,7 @@ class AntlrPlus(AntlrAtom):
 
 @dataclass
 class AntlrNot(AntlrAtom):
-    atom: AntlrLexerNonterminal
+    atom: AntlrLexerNonterminal # This needs to be a reference for not checking which means this should be done in another pass for validation
 
 @dataclass
 class AntlrLexerWildcard(AntlrAtom):
@@ -62,7 +63,6 @@ class AntlrRange[RangeType](AntlrTerminal, ABC):
 @dataclass
 class AntlrCharRange(AntlrRange[str]):
     pass
-
 
 @dataclass
 class AntlrNumRange(AntlrRange[int]):
@@ -122,4 +122,4 @@ class AntlrParserProduction(AntlrProduction):
 @dataclass
 class AntlrIr:
     production_rules: dict[str, AntlrProduction]
-    action_blocks: dict[str, list[ActedAntlrLexerBlock]] # Named references for rulesin production_rules
+    action_blocks: list[tuple[str, ActedAntlrLexerBlock]] # Named references for rulesin production_rules

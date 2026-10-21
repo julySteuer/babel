@@ -4,7 +4,6 @@ from babel_antlr.model.antlr_ir import (
     AntlrIr,
     AntlrProduction,
     ActedAntlrLexerBlock,
-    AntlrBlock,
 )
 from babel_antlr.parser_encoder import encode_parser_rule
 from babel_antlr.util import exec_first_valid
@@ -23,11 +22,13 @@ def _encode_rules(rules: ANTLRv4Parser.ParserRuleSpecContext) -> list[tuple[str,
         return []
     return [_encode_rule(rule) for rule in children]
 
-def _find_action_rules(productions: dict[str, AntlrProduction]) -> dict[str, list[ActedAntlrLexerBlock]]:
-    return {
-        name: [block for block in value.production.opts if isinstance(block, ActedAntlrLexerBlock)]
-        for name, value in productions.items()
-    }
+def _find_action_rules(productions: dict[str, AntlrProduction]) -> list[tuple[str, ActedAntlrLexerBlock]]:
+    return [
+        (name, block)
+        for name, production in productions.items()
+        for block in production.production.opts
+        if isinstance(block, ActedAntlrLexerBlock)
+    ]
 
 def encode_to_antlr_ir(grammar_spec_context: ANTLRv4Parser.GrammarSpecContext) -> AntlrIr:
     productions = _encode_rules(grammar_spec_context.rules())

@@ -70,22 +70,6 @@ def _from_babel_plus(plus: BabelPlus, parent_name: str) -> NautilusExpr:
         ],
     )
 
-def _from_babel_not(note: BabelNot, parent_name: str) -> NautilusExpr:
-    name = stateful_name_generator.generate_for(parent_name)
-    match note.atom: # TODO: Add handeling for raw regex
-        case BabelSymbol(terminal=symbol):
-            negated = NautilusRegex(f"[^{symbol}]")
-        case BabelCharRange(beginning=beginning, end=end):
-            negated = NautilusRegex(f"[^{beginning}-{end}]")
-        case BabelNumRange(beginning=beginning, end=end):
-            negated = NautilusRegex(f"[^{beginning}-{end}]")
-        case _:
-            raise NotImplementedError(
-                "BabelNot is only supported over terminal/range atoms; "
-                f"cannot negate a {type(note.atom).__name__} in a context-free grammar"
-            )
-    return NautilusExpr.capitalize_name(name, options=[NautilusBlock([negated])])
-
 def _from_block_list(block_list: BabelBlockList, parent_name: str) -> NautilusExpr:
     name = stateful_name_generator.generate_for(parent_name)
     return _make_rule(name, block_list)
@@ -100,8 +84,6 @@ def _from_babel_atom(atom: BabelAtom, parent_name: str) -> NautilusAtom:
             return _from_babel_star(atom, parent_name)
         case BabelPlus():
             return _from_babel_plus(atom, parent_name)
-        case BabelNot():
-            return _from_babel_not(atom, parent_name)
         case BabelNonterminal():
             return _create_capital_nonterminal(atom.nonterminal)
         case BabelBlockList():

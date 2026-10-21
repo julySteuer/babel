@@ -43,7 +43,7 @@ def _encode_lexer_atom(lexer_atom: ANTLRv4Parser.LexerAtomContext) -> AntlrAtom:
     return exec_first_valid(
         (terminal_def, lambda elem: encode_terminal_def(elem, AntlrLexerNonterminal)),
         (character_range, encode_character_range),
-        (not_set, lambda elem: encode_not_set(elem, AntlrLexerNonterminal)),
+        (not_set, lambda elem: encode_not_set(elem, AntlrLexerNonterminal, RegularAntlrLexerBlock)),
         (lexer_char_set, _parse_lexer_char_set),
         (wildcard, lambda _: AntlrLexerWildcard())
     )

@@ -14,7 +14,7 @@ def _handle_translate(inp: list[str] | None, output: str | None, start_symbol: s
         Path(file_name).read_text() for file_name in inp
     ]
 
-    translated_nautilus = generate_nautilus(grammars, start_symbol)
+    translated_nautilus = generate_nautilus(grammars, start_symbol) # TODO: Make this modular. Should delegate to another function in babel-core
 
     print(f"[BABEL] Input Grammars: {_generate_file_list_display_str(inp)}; Output Grammar: {output}")
     Path(output).write_text(translated_nautilus)

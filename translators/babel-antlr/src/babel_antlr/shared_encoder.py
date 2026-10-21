@@ -19,6 +19,7 @@ from babel_antlr.model.antlr_ir import (
 from babel_antlr.util import exec_first_valid
 
 context_type = Type[AntlrNonterminal]
+block_context_type = Type[AntlrBlock]
 
 def encode_ebnf_suffix_with_inner(
     ebnf_suffix: ANTLRv4Parser.EbnfSuffixContext | None, inner: AntlrAtom
@@ -63,18 +64,18 @@ def encode_set_element(set_element: ANTLRv4Parser.SetElementContext, context: co
         (lexer_char_set, lambda lcs: AntlrRawRegex(lcs.getText()))
     )
 
-def _encode_block_set(block_set: ANTLRv4Parser.BlockSetContext, context: context_type) -> AntlrBlock:
+def _encode_block_set(block_set: ANTLRv4Parser.BlockSetContext, context: block_context_type, deep_context: context_type) -> AntlrBlock:
     set_elements = block_set.setElement()
 
-    encoded_block_sets = list(map(lambda elem: encode_set_element(elem, context), set_elements)) # TODO: Add BabelBlockSet as atom
-    return AntlrBlock(encoded_block_sets)
+    encoded_block_sets = list(map(lambda elem: encode_set_element(elem, deep_context), set_elements)) # TODO: Add BabelBlockSet as atom
+    return context(encoded_block_sets)
 
-def encode_not_set(not_set: ANTLRv4Parser.NotSetContext, context: context_type) -> AntlrNot:
+def encode_not_set(not_set: ANTLRv4Parser.NotSetContext, context: context_type, block_context: block_context_type) -> AntlrNot:
     set_element = not_set.setElement()
     block_set = not_set.blockSet()
 
     return AntlrNot(
         exec_first_valid(
-            (set_element, lambda elem: encode_set_element(elem, context)), (block_set, lambda elem: _encode_block_set(elem, context))
+            (set_element, lambda elem: encode_set_element(elem, context)), (block_set, lambda elem: _encode_block_set(elem, block_context, context))
         )
     )

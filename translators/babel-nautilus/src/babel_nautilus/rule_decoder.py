@@ -13,8 +13,9 @@ from babel_nautilus.model.rule import (
     RuleBlock,
     EmptyBlock,
 )
-from babel_nautilus.name_generator import stateful_name_generator
 from babel_nautilus.shared import make_nonterminal_str, capitalize_name
+from babel_shared.name_generator import stateful_name_generator
+
 
 def _escape_character(char: str) -> str:
     match char:

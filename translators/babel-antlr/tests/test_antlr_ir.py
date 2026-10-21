@@ -3,7 +3,6 @@ from babel_antlr.model.antlr_ir import (
     AntlrChannel,
     AntlrParserBlock,
     AntlrSkip,
-    AntlrBlock,
     AntlrBlockList,
     AntlrCharRange,
     AntlrIr,
@@ -51,7 +50,7 @@ def pblock(*atoms) -> AntlrParserBlock:
 
 
 def test_empty_grammar():
-    assert to_antlr_ir("grammar Empty;") == AntlrIr({}, {})
+    assert to_antlr_ir("grammar Empty;") == AntlrIr({}, [])
 
 
 def test_rules_are_keyed_by_name_and_typed():
@@ -83,7 +82,7 @@ def test_block_types_follow_rule_kind():
 
 def test_plain_rules_have_no_action_blocks():
     ir = to_antlr_ir("grammar T;\na: B ;\nB: 'b' ;\n")
-    assert all(blocks == [] for blocks in ir.action_blocks.values())
+    assert ir.action_blocks == []
 
 
 # --- lexer rules -------------------------------------------------------------
@@ -139,7 +138,24 @@ def test_lexer_not_string_literal():
 
 def test_lexer_not_block_set():
     assert rule("A: ~('a' | 'b') ;", "A") == lexer(
-        [AntlrNot(AntlrBlock([AntlrSymbol("a"), AntlrSymbol("b")]))]
+        [AntlrNot(lblock(AntlrSymbol("a"), AntlrSymbol("b")))]
+    )
+
+
+def test_lexer_not_block_set_is_a_lexer_block():
+    (block,) = rule("A: ~('a' | 'b') ;", "A").production.opts
+    assert type(block.atoms[0].atom) is RegularAntlrLexerBlock
+
+
+def test_lexer_not_block_set_with_token_reference_and_range():
+    assert rule("A: ~(B | 'a'..'z') ;\nB: 'b' ;", "A") == lexer(
+        [AntlrNot(lblock(AntlrLexerNonterminal("B"), AntlrCharRange("a", "z")))]
+    )
+
+
+def test_parser_not_block_set_is_a_parser_block():
+    assert rule("r: ~(X | Y) ;", "r") == parser(
+        [AntlrNot(pblock(AntlrParserNonterminal("X"), AntlrParserNonterminal("Y")))]
     )
 
 
@@ -272,7 +288,35 @@ def test_other_commands_are_regular_blocks():
     assert rule("A: 'a' -> mode(M) ;", "A") == lexer([AntlrSymbol("a")])
 
 
-def test_action_blocks_are_collected_per_rule():
+def test_action_blocks_are_collected_as_name_block_pairs():
     ir = to_antlr_ir("grammar T;\nWS: ' ' -> skip | '\\t' ;\nA: 'a' ;\n")
-    assert ir.action_blocks["WS"] == [acted(AntlrSkip(), AntlrSymbol(" "))]
-    assert ir.action_blocks["A"] == []
+    assert ir.action_blocks == [("WS", acted(AntlrSkip(), AntlrSymbol(" ")))]
+
+
+def test_action_blocks_are_the_same_objects_as_in_the_production():
+    ir = to_antlr_ir("grammar T;\nWS: ' ' -> skip ;\n")
+    ((_, block),) = ir.action_blocks
+    assert block is ir.production_rules["WS"].production.opts[0]
+
+
+def test_every_acted_alternative_of_a_rule_is_listed():
+    ir = to_antlr_ir("grammar T;\nA: 'a' -> skip | 'b' | 'c' -> channel(HIDDEN) ;\n")
+    assert ir.action_blocks == [
+        ("A", acted(AntlrSkip(), AntlrSymbol("a"))),
+        ("A", acted(AntlrChannel(), AntlrSymbol("c"))),
+    ]
+
+
+def test_action_blocks_keep_grammar_order_across_rules():
+    ir = to_antlr_ir("grammar T;\nA: 'a' -> skip ;\nB: 'b' ;\nC: 'c' -> channel(HIDDEN) ;\n")
+    assert [name for name, _ in ir.action_blocks] == ["A", "C"]
+
+
+def test_unrecognised_commands_are_not_action_blocks():
+    ir = to_antlr_ir("grammar T;\nA: 'a' -> mode(M) ;\n")
+    assert ir.action_blocks == []
+
+
+def test_parser_rules_never_produce_action_blocks():
+    ir = to_antlr_ir("grammar T;\nr: a | b ;\n")
+    assert ir.action_blocks == []

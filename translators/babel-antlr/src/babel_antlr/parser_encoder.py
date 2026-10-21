@@ -72,7 +72,7 @@ def _encode_atom(
     inner = exec_first_valid(
         (terminal_def, lambda elem: encode_terminal_def(elem, AntlrParserNonterminal)),
         (ruleref, _encode_ruleref),
-        (not_set, lambda elem: encode_not_set(elem, AntlrParserNonterminal)),
+        (not_set, lambda elem: encode_not_set(elem, AntlrParserNonterminal, AntlrParserBlock)),
         (wildcard, lambda _: AntlrParserWildcard()),
     )
 
