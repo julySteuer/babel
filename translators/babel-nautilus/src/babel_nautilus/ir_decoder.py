@@ -22,12 +22,16 @@ from babel_nautilus.model.nautilus_ir import (
     NautilusNonterminal,
     NautilusRegex,
 )
+from babel_nautilus.ascii_regex import EmptyAsciiClass, restrict_to_ascii
 from babel_nautilus.shared import capitalize_name
 
 from babel_shared.name_generator import stateful_name_generator
 
 def _create_capital_nonterminal(nonterminal: str) -> NautilusNonterminal:
     return NautilusNonterminal(capitalize_name(nonterminal))
+
+def _escape_class_char(char: str) -> str:
+    return "\\" + char if char in "\\[]^-" else char
 
 def _from_babel_optional(optional: BabelOptional, parent_name: str) -> NautilusExpr:
     name = stateful_name_generator.generate_for(parent_name)
@@ -43,10 +47,12 @@ def _from_babel_optional(optional: BabelOptional, parent_name: str) -> NautilusE
 def _from_babel_terminal(terminal: BabelTerminal) -> NautilusAtom:
     match terminal:
         case BabelRawRegex(raw=regex):
-            return NautilusRegex(regex)
+            return NautilusRegex(restrict_to_ascii(regex))
         case BabelSymbol(terminal=symbol):
             return NautilusTerminal(symbol)
-        case BabelCharRange(beginning=beginning, end=end) | BabelNumRange(beginning=beginning, end=end):
+        case BabelCharRange(beginning=beginning, end=end):
+            return NautilusRegex(restrict_to_ascii(f"[{_escape_class_char(beginning)}-{_escape_class_char(end)}]"))
+        case BabelNumRange(beginning=beginning, end=end):
             return NautilusRegex(f"[{beginning}-{end}]")
 
 def _from_babel_star(star: BabelStar, parent_name: str) -> NautilusExpr:
@@ -89,19 +95,24 @@ def _from_babel_atom(atom: BabelAtom, parent_name: str) -> NautilusAtom:
         case BabelBlockList():
             return _from_block_list(atom, parent_name)
 
-def _from_block(block: BabelBlock, parent_name: str) -> NautilusBlock:
+def _from_block(block: BabelBlock, parent_name: str) -> NautilusBlock | None:
     # TODO: Determine which block by checking the children. If they are just regex they can be combined otherwise new rule
     # TODO: Make the regex rule parser in another function just return as is
     # TODO: This Also desides which type the parent expressionn is. Do this not here but on the next pass
-    parsed_children = [
-        _from_babel_atom(atom, parent_name) for atom in block.atoms
-    ]
+    try:
+        parsed_children = [
+            _from_babel_atom(atom, parent_name) for atom in block.atoms
+        ]
+    except EmptyAsciiClass:
+        return None  # Can not match anything the nautilus regex generator supports, so the alternative is dropped
     return NautilusBlock(parsed_children)
 
 def _make_rule(name: str, production: BabelBlockList) -> NautilusExpr:
     options = [
-        _from_block(block, name) for block in production.opts
+        option for option in (_from_block(block, name) for block in production.opts) if option is not None
     ]
+    if not options:
+        options = [NautilusBlock([NautilusRegex("[ -~]")])]  # Nautilus needs at least one option per rule
     return NautilusExpr.capitalize_name(
         name,
         options

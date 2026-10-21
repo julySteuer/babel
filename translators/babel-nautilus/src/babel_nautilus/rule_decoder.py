@@ -17,10 +17,10 @@ from babel_nautilus.shared import make_nonterminal_str, capitalize_name
 from babel_shared.name_generator import stateful_name_generator
 
 
+# Escapes for the Nautilus rule format: it only gives `{` and `}` a meaning.
+# A backslash is literal, except that `\\{` and `\\}` are read as escaped braces (see `_construct_block`).
 def _escape_character(char: str) -> str:
     match char:
-        case '"':
-            return '\\"'
         case '{':
             return '\\{'
         case '}':
@@ -60,14 +60,21 @@ def _construct_rule_for_regex(regex: RegexAtom, parent_name: str) -> tuple[str, 
         ]
     )
 
-def _construct_block_with_additional_references(child_atom: Atom, name: str) -> tuple[str, Rule | None]:
+def _construct_rule_for_terminal(terminal: TerminalAtom, parent_name: str) -> tuple[str, Rule]:
+    name = capitalize_name(stateful_name_generator.generate_for(parent_name))
+    return make_nonterminal_str(name), Rule(name, [RuleBlock(terminal.content)])
+
+def _construct_block_with_additional_references(child_atom: Atom, name: str, is_last: bool) -> tuple[str, Rule | None]:
     match child_atom:
+        case TerminalAtom(content=text) if text.endswith("\\") and not text.endswith("\\\\") and not is_last:
+            # `\` directly followed by `{Nonterminal}` would be read as an escaped brace, so the terminal gets a rule of its own
+            return _construct_rule_for_terminal(child_atom, name)
         case RegexAtom():
             return _construct_rule_for_regex(child_atom, name)
         case NonterminalAtom(refferer=text):
             return text, None
         case TerminalAtom(content=text):
-            return _escape_terminal(text), None
+            return text, None  # Already escaped by `_decode_atom`
 
 def _construct_block(child_atoms: list[Atom], name: str) -> tuple[Block, list[Rule]]:
     # TODO: Make this more nuanced. So that empty rules with child_atoms == [] a ruleBlock with an empty list
@@ -82,7 +89,8 @@ def _construct_block(child_atoms: list[Atom], name: str) -> tuple[Block, list[Ru
         return RegexBlock(content), list() # No new rules generated
 
     block_data = [
-        _construct_block_with_additional_references(child_atom, name) for child_atom in child_atoms
+        _construct_block_with_additional_references(child_atom, name, is_last=index == len(child_atoms) - 1)
+        for index, child_atom in enumerate(child_atoms)
     ]
     # Has to be done this way
     additional_rules = [

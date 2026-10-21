@@ -9,6 +9,7 @@ from babel_ir.model import (
     BabelSymbol,
     BabelNonterminal,
     BabelCharRange,
+    BabelRawRegex,
     BabelNumRange,
     BabelOptional,
 )
@@ -132,3 +133,55 @@ def test_add_start_rule_appends_a_start_rule_referencing_the_given_symbol():
         'ctx.rule("START", "{Foo}")\n'
         'ctx.rule("EOF", "")'
     )
+
+
+# --- escaping in the generated python grammar ----------------------------------
+
+
+def _execute(grammar: str) -> list[tuple[str, str, str]]:
+    calls = []
+
+    class Ctx:
+        def rule(self, name, content):
+            calls.append(("rule", name, content))
+
+        def regex(self, name, content):
+            calls.append(("regex", name, content))
+
+    exec(compile(grammar, "<grammar>", "exec"), {"ctx": Ctx()})
+    return calls
+
+
+def test_generated_grammar_reads_back_the_original_terminal():
+    for terminal in ['"', "\\", "\n", "\r", "\t", "\x0c", "'", "\\\"", "a\\nb"]:
+        ir = _single_rule_ir("Foo", BabelSymbol(terminal))
+        assert _execute(decode(ir, "Foo"))[0] == ("rule", "Foo", terminal)
+
+
+def test_braces_in_terminals_are_escaped_for_nautilus_once():
+    ir = _single_rule_ir("Foo", BabelSymbol("{}"))
+    assert _execute(decode(ir, "Foo"))[0] == ("rule", "Foo", "\\{\\}")
+
+
+def test_generated_grammar_reads_back_regexes():
+    ir = _single_rule_ir("Foo", BabelRawRegex('["\\\\a-z]'))
+    assert _execute(decode(ir, "Foo"))[0] == ("regex", "Foo", '["\\\\a-z]')
+
+
+def test_char_range_ends_are_escaped_in_the_class():
+    ir = _single_rule_ir("Foo", BabelCharRange("\\", "]"))
+    assert _execute(decode(ir, "Foo"))[0] == ("regex", "Foo", "[\\\\-\\]]")
+
+
+def test_backslash_before_a_nonterminal_gets_its_own_rule():
+    # `\{BAR}` would be read by nautilus as an escaped brace followed by `BAR}`
+    ir = _single_rule_ir("Foo", BabelSymbol("\\"), BabelNonterminal("BAR"))
+    assert decode(ir, "Foo").splitlines()[:2] == [
+        'ctx.rule("Foo_0__GENERATED", "\\\\")',
+        'ctx.rule("Foo", "{Foo_0__GENERATED}{BAR}")',
+    ]
+
+
+def test_trailing_backslash_needs_no_extra_rule():
+    ir = _single_rule_ir("Foo", BabelNonterminal("BAR"), BabelSymbol("\\"))
+    assert decode(ir, "Foo").splitlines()[0] == 'ctx.rule("Foo", "{BAR}\\\\")'

@@ -72,7 +72,7 @@ def test_antlr_grammar_translates_to_babel_ir():
             ),
             # `.` in the parser: every token the lexer hands over (no skipped ones)
             "ALL_LEXER_RULES_0__GENERATED": prod(
-                [nt("ID")], [nt("INT")], [nt("STRING")], [BabelSymbol("\\t")]
+                [nt("ID")], [nt("INT")], [nt("STRING")], [BabelSymbol("\t")]
             ),
             # skipped alternatives, one rule each
             "ALL_ACTED_RULES_0__GENERATED": prod([nt("WS_0__GENERATED")], [nt("COMMENT_0__GENERATED")]),
@@ -82,7 +82,7 @@ def test_antlr_grammar_translates_to_babel_ir():
             "STRING": prod(
                 [BabelSymbol('"'), BabelStar(BabelRawRegex('[^"\\\\]')), BabelSymbol('"')]
             ),
-            "WS": prod([BabelSymbol(" ")], [BabelSymbol("\\t")]),
+            "WS": prod([BabelSymbol(" ")], [BabelSymbol("\t")]),
             "COMMENT": prod([BabelSymbol("#"), BabelStar(BabelRawRegex("[^\\n]"))]),
             "WS_0__GENERATED": prod([BabelSymbol(" ")]),
             "COMMENT_0__GENERATED": prod([BabelSymbol("#"), BabelStar(BabelRawRegex("[^\\n]"))]),

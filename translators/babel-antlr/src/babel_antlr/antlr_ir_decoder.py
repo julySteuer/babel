@@ -44,14 +44,16 @@ def _tween(seq, sep):
 
 
 def _escape_char_class_char(char: str) -> str:
-    return "\\" + char if char in "\\]^-" else char
+    return "\\" + char if char in "\\[]^-" else char
 
 
 def _char_class_body(atom: AntlrAtom) -> str:
     match atom:
         case AntlrSymbol(terminal):
             return "".join(_escape_char_class_char(c) for c in terminal)
-        case AntlrCharRange(beginning, end) | AntlrNumRange(beginning, end):
+        case AntlrCharRange(beginning, end):
+            return f"{_escape_char_class_char(beginning)}-{_escape_char_class_char(end)}"
+        case AntlrNumRange(beginning, end):
             return f"{beginning}-{end}"
         case AntlrRawRegex(raw) if raw.startswith("[") and raw.endswith("]"):
             return raw[1:-1]
@@ -121,12 +123,10 @@ def _decode_atom(atom: AntlrAtom, scope: _Scope) -> BabelAtom:
 
 
 def _lexer_scope() -> _Scope:
-    # A lexer `.` matches exactly one character
     return _Scope(BabelRawRegex("."))
 
 
 def _generate_acted_productions(action_blocks: list[tuple[str, ActedAntlrLexerBlock]]) -> dict[str, AntlrLexerProduction]:
-    """Every acted alternative (e.g. `-> skip`) becomes a rule of its own with a fresh name."""
     return {
         stateful_name_generator.generate_for(name): AntlrLexerProduction(AntlrBlockList([block]))
         for name, block in action_blocks
@@ -134,13 +134,10 @@ def _generate_acted_productions(action_blocks: list[tuple[str, ActedAntlrLexerBl
 
 
 def _lexer_productions(production_rules: dict[str, AntlrProduction]) -> dict[str, AntlrProduction]:
-    # Kept complete (acted alternatives included): another lexer rule referencing e.g. WS still has to match ' '.
-    # A command like `-> skip` only applies when the token itself is matched.
     return {name: production for name, production in production_rules.items() if isinstance(production, AntlrLexerProduction)}
 
 
 def _all_lexer_rule_options(lexer_productions: dict[str, AntlrProduction]) -> list[BabelBlock]:
-    """One option per token the lexer emits to the parser, i.e. excluding acted (skipped) alternatives."""
     scope = _lexer_scope()
     options: list[BabelBlock] = []
     for name, production in lexer_productions.items():

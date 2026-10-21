@@ -2,6 +2,7 @@ import pytest
 
 from babel_ir.model import (
     BabelIr,
+    BabelRawRegex,
     BabelProduction,
     BabelBlockList,
     BabelBlock,
@@ -217,3 +218,34 @@ def test_multiple_rules_are_each_decoded_independently():
     # Synthetic names are scoped per parent rule name, so "Foo" and "Bar" each start at 0.
     assert result[0].options[0].children[0].name == "Foo_0__GENERATED"
     assert result[1].options[0].children[0].name == "Bar_0__GENERATED"
+
+
+# --- regexes are restricted to ASCII (the nautilus regex generator panics otherwise) --------
+
+
+def test_raw_regex_with_non_ascii_range_is_clamped():
+    ir = _single_rule_ir("Foo", BabelRawRegex("[a\\u00c0-\\u00d6]"))
+    assert decode_ir(ir) == [NautilusExpr("Foo", options=[NautilusBlock([NautilusRegex("[\\x61]")])])]
+
+
+def test_wildcard_regex_is_restricted_to_ascii():
+    ir = _single_rule_ir("Foo", BabelRawRegex("."))
+    assert decode_ir(ir) == [NautilusExpr("Foo", options=[NautilusBlock([NautilusRegex("[\\x00-\\x09\\x0B-\\x7F]")])])]
+
+
+def test_alternative_without_any_ascii_match_is_dropped():
+    ir = BabelIr(
+        {
+            "Foo": BabelProduction(
+                BabelBlockList(
+                    [BabelBlock([BabelSymbol("a")]), BabelBlock([BabelRawRegex("[\\u3040-\\u318f]")])]
+                )
+            )
+        }
+    )
+    assert decode_ir(ir) == [NautilusExpr("Foo", options=[NautilusBlock([NautilusTerminal("a")])])]
+
+
+def test_rule_with_only_unmatchable_alternatives_falls_back_to_printable_ascii():
+    ir = _single_rule_ir("Foo", BabelRawRegex("[\\u3040-\\u318f]"))
+    assert decode_ir(ir) == [NautilusExpr("Foo", options=[NautilusBlock([NautilusRegex("[ -~]")])])]

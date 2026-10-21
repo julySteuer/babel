@@ -143,7 +143,7 @@ def test_acted_alternative_becomes_its_own_rule():
 
 def test_original_rule_keeps_its_acted_alternatives_so_references_still_match():
     rules = decode("grammar T;\nA: 'a' WS 'b' ;\nWS: ' ' -> skip | '\\t' ;\n")
-    assert rules["WS"] == prod([BabelSymbol(" ")], [BabelSymbol("\\t")])
+    assert rules["WS"] == prod([BabelSymbol(" ")], [BabelSymbol("\t")])
     assert rules["A"] == prod([BabelSymbol("a"), nt("WS"), BabelSymbol("b")])
 
 
@@ -163,7 +163,7 @@ def test_acted_rules_are_not_part_of_all_lexer_rules():
 
 def test_all_lexer_rules_inlines_only_the_regular_alternatives_of_mixed_rules():
     rules = decode("grammar T;\nr: . ;\nA: 'a' ;\nWS: ' ' -> skip | '\\t' ;\n")
-    assert rules[ALL_LEXER] == prod([nt("A")], [BabelSymbol("\\t")])
+    assert rules[ALL_LEXER] == prod([nt("A")], [BabelSymbol("\t")])
 
 
 def test_acted_rules_are_tweened_between_parser_atoms():

@@ -5,12 +5,33 @@ from babel_nautilus.rule_decoder import decode_to_rules
 
 from babel_nautilus.ir_decoder import decode_ir
 
+def _python_string_literal_body(content: str) -> str:
+    """Escapes content so that it reads back unchanged when the generated python grammar is executed."""
+    escaped = []
+    for char in content:
+        match char:
+            case "\\":
+                escaped.append("\\\\")
+            case '"':
+                escaped.append('\\"')
+            case "\n":
+                escaped.append("\\n")
+            case "\r":
+                escaped.append("\\r")
+            case "\t":
+                escaped.append("\\t")
+            case _ if ord(char) < 0x20 or ord(char) == 0x7f:
+                escaped.append(f"\\x{ord(char):02x}")
+            case _:
+                escaped.append(char)
+    return "".join(escaped)
+
 def _string_from_block(block: Block, name: str) -> str:
     match block:
         case RegexBlock(content=content):
-            return f"ctx.regex(\"{name}\", \"{content}\")"
+            return f"ctx.regex(\"{name}\", \"{_python_string_literal_body(content)}\")"
         case RuleBlock(content=content):
-            return f"ctx.rule(\"{name}\", \"{content}\")"
+            return f"ctx.rule(\"{name}\", \"{_python_string_literal_body(content)}\")"
         case EmptyBlock():
             return f"ctx.rule(\"{name}\", \"\")"
 

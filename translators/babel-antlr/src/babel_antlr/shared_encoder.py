@@ -1,3 +1,4 @@
+import re
 from typing import Type
 
 from antlr4.tree.Tree import TerminalNodeImpl
@@ -35,8 +36,24 @@ def encode_ebnf_suffix_with_inner(
 def make_symbol(terminal_node: TerminalNodeImpl) -> AntlrSymbol:
     return AntlrSymbol(process_symbol_str(terminal_node.getText()))
 
+_SIMPLE_ESCAPES = {"n": "\n", "r": "\r", "t": "\t", "b": "\b", "f": "\f"}
+_ESCAPE_PATTERN = re.compile(r"\\(?:u\{([0-9a-fA-F]+)\}|u([0-9a-fA-F]{4})|(.))", re.DOTALL)
+
+
+def _unescape_char(match: re.Match[str]) -> str:
+    braced_code_point, code_point, char = match.groups()
+    if braced_code_point or code_point:
+        return chr(int(braced_code_point or code_point, 16))
+    return _SIMPLE_ESCAPES.get(char, char)  # `\\`, `\'`, `\"` and friends stand for the character itself
+
+
+def unescape_antlr_literal(text: str) -> str:
+    """Turns the escape sequences of an ANTLR string literal body into the characters they stand for."""
+    return _ESCAPE_PATTERN.sub(_unescape_char, text)
+
+
 def process_symbol_str(symbol_str: str) -> str:
-    return symbol_str[1:len(symbol_str) - 1]
+    return unescape_antlr_literal(symbol_str[1:len(symbol_str) - 1])
 
 def encode_terminal_def(terminal_def: ANTLRv4Parser.TerminalDefContext, context: context_type) -> AntlrAtom:
     return ( # TODO: Deal with the change and make caller decide the type

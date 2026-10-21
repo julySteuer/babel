@@ -320,3 +320,33 @@ def test_unrecognised_commands_are_not_action_blocks():
 def test_parser_rules_never_produce_action_blocks():
     ir = to_antlr_ir("grammar T;\nr: a | b ;\n")
     assert ir.action_blocks == []
+
+
+# --- escape sequences in literals ----------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "literal, expected",
+    [
+        (r"'\''", "'"),
+        (r"'\\'", "\\"),
+        (r"'\"'", '"'),
+        (r"'\n'", "\n"),
+        (r"'\r'", "\r"),
+        (r"'\t'", "\t"),
+        (r"'\u000C'", "\x0c"),
+        (r"'\u{1F600}'", "\U0001F600"),
+        (r"'a\'b'", "a'b"),
+        (r"'\\n'", "\\n"),  # escaped backslash followed by a plain n
+    ],
+)
+def test_string_literal_escapes_are_resolved(literal, expected):
+    assert rule(f"A: {literal} ;", "A") == lexer([AntlrSymbol(expected)])
+
+
+def test_char_range_escapes_are_resolved():
+    assert rule(r"A: '\u0000'..'\u001F' ;", "A") == lexer([AntlrCharRange("\x00", "\x1f")])
+
+
+def test_char_sets_stay_raw_regex():
+    assert rule(r"A: [\n\\] ;", "A") == lexer([AntlrRawRegex(r"[\n\\]")])
