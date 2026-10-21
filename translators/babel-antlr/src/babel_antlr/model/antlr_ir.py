@@ -16,7 +16,6 @@ class AntlrTerminal(AntlrAtom, ABC):
 class AntlrSymbol(AntlrTerminal):
     terminal: str
 
-
 @dataclass
 class AntlrNonterminal(AntlrAtom, ABC):
     nonterminal: str

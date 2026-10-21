@@ -4,6 +4,7 @@ use libafl::Error;
 use libafl::executors::{Executor, ExitKind, HasObservers};
 use libafl::generators::nautilus::NautilusContext;
 use libafl::inputs::nautilus::NautilusInput;
+use libafl::state::HasExecutions;
 use libafl_bolts::tuples::RefIndexable;
 
 use crate::antlr;
@@ -34,14 +35,15 @@ impl<'a> AntlrParseExecutor<'a> {
     }
 }
 
-impl<EM, S, Z> Executor<EM, NautilusInput, S, Z> for AntlrParseExecutor<'_> {
+impl<EM, S: HasExecutions, Z> Executor<EM, NautilusInput, S, Z> for AntlrParseExecutor<'_> {
     fn run_target(
         &mut self,
         _fuzzer: &mut Z,
-        _state: &mut S,
+        state: &mut S,
         _mgr: &mut EM,
         input: &NautilusInput,
     ) -> Result<ExitKind, Error> {
+        *state.executions_mut() += 1;
         input.unparse(self.context, &mut self.bytes);
         let generated_input = String::from_utf8_lossy(&self.bytes);
         self.observers.0.visited =

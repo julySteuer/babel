@@ -1,0 +1,4 @@
+just_dir := justfile_dir()
+
+run_test repetitions limit:
+    uv run nautilus-antlr-test --limit {{limit}} --repetitions {{repetitions}}

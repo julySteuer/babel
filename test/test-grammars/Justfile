@@ -10,8 +10,13 @@ test grammar repititions: (compile grammar) compile_fuzzer
     {{fuzzer_bin}} naut-test.py {{repititions}} `echo {{grammar}}/*.g4`
     rm -rf {{translator_output}}
 
+# Continuous fuzzing with the live monitor. Extra flags, e.g.: just watch http --stall 500 --target-coverage 0.9
+watch grammar *flags: (compile grammar) compile_fuzzer
+    {{fuzzer_bin}} --tui {{flags}} naut-test.py 0 `echo {{grammar}}/*.g4`
+    rm -rf {{translator_output}}
+
 compile_fuzzer:
-    cargo build --manifest-path={{manifest_file}}
+    cargo build --manifest-path={{manifest_file}} --release
 
 compile grammar: # Add default grammar path 
     uv run babel-cli translate -i `echo {{grammar}}/*.g4` -o {{translator_output}} -s `cat {{grammar}}/startsymbol`
