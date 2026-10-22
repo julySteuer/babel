@@ -48,23 +48,33 @@ def test_empty_grammar_decodes_to_no_rules():
 
 def test_lexer_atoms():
     rules = decode("grammar T;\nA: 'a' 'b'..'c' [x-z] B ;\nB: 'b' ;\n")
-    assert rules["A"] == prod([BabelSymbol("a"), BabelCharRange("b", "c"), BabelRawRegex("[x-z]"), nt("B")])
+    assert rules["A"] == prod(
+        [BabelSymbol("a"), BabelCharRange("b", "c"), BabelRawRegex("[x-z]"), nt("B")]
+    )
 
 
 def test_lexer_suffixes():
     rules = decode("grammar T;\nA: 'a'* 'b'+ 'c'? ;\n")
     assert rules["A"] == prod(
-        [BabelStar(BabelSymbol("a")), BabelPlus(BabelSymbol("b")), BabelOptional(BabelSymbol("c"))]
+        [
+            BabelStar(BabelSymbol("a")),
+            BabelPlus(BabelSymbol("b")),
+            BabelOptional(BabelSymbol("c")),
+        ]
     )
 
 
 def test_lexer_alternatives():
-    assert decode("grammar T;\nA: 'a' | 'b' ;\n")["A"] == prod([BabelSymbol("a")], [BabelSymbol("b")])
+    assert decode("grammar T;\nA: 'a' | 'b' ;\n")["A"] == prod(
+        [BabelSymbol("a")], [BabelSymbol("b")]
+    )
 
 
 def test_lexer_inline_block_becomes_block_list():
     rules = decode("grammar T;\nA: ('a' | 'b')+ ;\n")
-    inner = BabelBlockList([BabelBlock([BabelSymbol("a")]), BabelBlock([BabelSymbol("b")])])
+    inner = BabelBlockList(
+        [BabelBlock([BabelSymbol("a")]), BabelBlock([BabelSymbol("b")])]
+    )
     assert rules["A"] == prod([BabelPlus(inner)])
 
 
@@ -108,7 +118,9 @@ def test_parser_rule_without_lexer_rules_is_decoded_plainly():
 def test_parser_suffixes_and_blocks():
     rules = decode("grammar T;\nr: a* (a | b)+ b? ;\na: 'a' ;\nb: 'b' ;\n")
     alts = BabelBlockList([BabelBlock([nt("a")]), BabelBlock([nt("b")])])
-    assert rules["r"] == prod([BabelStar(nt("a")), BabelPlus(alts), BabelOptional(nt("b"))])
+    assert rules["r"] == prod(
+        [BabelStar(nt("a")), BabelPlus(alts), BabelOptional(nt("b"))]
+    )
 
 
 def test_parser_not_is_unsupported():
@@ -129,7 +141,10 @@ def test_parser_wildcard_references_a_rule_with_all_lexer_rules():
 
 
 def test_no_all_lexer_rules_rule_without_lexer_rules():
-    assert not any(name.startswith("ALL_LEXER_RULES") for name in decode("grammar T;\nr: a ;\na: 'a' ;\n"))
+    assert not any(
+        name.startswith("ALL_LEXER_RULES")
+        for name in decode("grammar T;\nr: a ;\na: 'a' ;\n")
+    )
 
 
 # --- lexer commands ------------------------------------------------------------
@@ -152,8 +167,12 @@ def test_rule_consisting_only_of_acted_alternatives_is_kept():
 
 
 def test_all_acted_rules_lists_every_acted_alternative_as_an_option():
-    rules = decode("grammar T;\nA: 'a' -> skip | 'b' -> skip ;\nC: 'c' -> channel(HIDDEN) ;\n")
-    assert rules[ALL_ACTED] == prod([nt("A_0__GENERATED")], [nt("A_1__GENERATED")], [nt("C_0__GENERATED")])
+    rules = decode(
+        "grammar T;\nA: 'a' -> skip | 'b' -> skip ;\nC: 'c' -> channel(HIDDEN) ;\n"
+    )
+    assert rules[ALL_ACTED] == prod(
+        [nt("A_0__GENERATED")], [nt("A_1__GENERATED")], [nt("C_0__GENERATED")]
+    )
 
 
 def test_acted_rules_are_not_part_of_all_lexer_rules():
@@ -167,7 +186,9 @@ def test_all_lexer_rules_inlines_only_the_regular_alternatives_of_mixed_rules():
 
 
 def test_acted_rules_are_tweened_between_parser_atoms():
-    rules = decode("grammar T;\nr: A B C ;\nA: 'a' ;\nB: 'b' ;\nC: 'c' ;\nWS: ' ' -> skip ;\n")
+    rules = decode(
+        "grammar T;\nr: A B C ;\nA: 'a' ;\nB: 'b' ;\nC: 'c' ;\nWS: ' ' -> skip ;\n"
+    )
     skip = BabelStar(nt(ALL_ACTED))
     assert rules["r"] == prod([nt("A"), skip, nt("B"), skip, nt("C")])
 

@@ -41,12 +41,15 @@ def _get_all_rules(rule: NautilusRule) -> list[Rule]:
     pass
 """
 
+
 class NautilusAtom(ABC):
     pass
+
 
 @dataclass
 class NautilusTerminal(NautilusAtom):
     terminal: str
+
 
 @dataclass
 class NautilusNonterminal(NautilusAtom):
@@ -55,15 +58,19 @@ class NautilusNonterminal(NautilusAtom):
     def __post_init__(self):
         check_nonterminal_reference(self.nonterminal)
 
+
 @dataclass
 class NautilusRegex(NautilusAtom):
     regex: str
+
 
 @dataclass
 class NautilusBlock:
     children: list[NautilusAtom]
 
+
 # Maybe add Rule list later only if problems arise
+
 
 @dataclass
 class NautilusExpr(NautilusAtom):

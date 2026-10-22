@@ -28,9 +28,7 @@ def reset_name_generator():
 def _single_rule_ir(name: str, *atoms: BabelAtom) -> BabelIr:
     return BabelIr(
         production_rules={
-            name: BabelProduction(
-                BabelBlockList(opts=[BabelBlock(atoms=list(atoms))])
-            )
+            name: BabelProduction(BabelBlockList(opts=[BabelBlock(atoms=list(atoms))]))
         }
     )
 
@@ -39,9 +37,7 @@ def test_plain_terminal_and_nonterminal_input_compiles_to_a_ctx_rule_call():
     ir = _single_rule_ir("Foo", BabelSymbol("a"), BabelNonterminal("BAR"))
 
     assert decode(ir, "Foo") == (
-        'ctx.rule("Foo", "a{BAR}")\n'
-        'ctx.rule("START", "{Foo}")\n'
-        'ctx.rule("EOF", "")'
+        'ctx.rule("Foo", "a{BAR}")\nctx.rule("START", "{Foo}")\nctx.rule("EOF", "")'
     )
 
 
@@ -51,9 +47,7 @@ def test_pure_char_range_input_compiles_to_a_ctx_regex_call():
     ir = _single_rule_ir("Foo", BabelCharRange("a", "z"))
 
     assert decode(ir, "Foo") == (
-        'ctx.regex("Foo", "[a-z]")\n'
-        'ctx.rule("START", "{Foo}")\n'
-        'ctx.rule("EOF", "")'
+        'ctx.regex("Foo", "[a-z]")\nctx.rule("START", "{Foo}")\nctx.rule("EOF", "")'
     )
 
 
@@ -84,7 +78,9 @@ def test_multiple_production_rules_compile_to_newline_joined_calls():
         production_rules={
             "Foo": BabelProduction(
                 BabelBlockList(
-                    opts=[BabelBlock(atoms=[BabelSymbol("a"), BabelCharRange("a", "z")])]
+                    opts=[
+                        BabelBlock(atoms=[BabelSymbol("a"), BabelCharRange("a", "z")])
+                    ]
                 )
             ),
             "Bar": BabelProduction(
@@ -129,9 +125,7 @@ def test_add_start_rule_appends_a_start_rule_referencing_the_given_symbol():
     ir = _single_rule_ir("Foo", BabelSymbol("a"))
 
     assert decode(ir, "Foo") == (
-        'ctx.rule("Foo", "a")\n'
-        'ctx.rule("START", "{Foo}")\n'
-        'ctx.rule("EOF", "")'
+        'ctx.rule("Foo", "a")\nctx.rule("START", "{Foo}")\nctx.rule("EOF", "")'
     )
 
 
@@ -153,7 +147,7 @@ def _execute(grammar: str) -> list[tuple[str, str, str]]:
 
 
 def test_generated_grammar_reads_back_the_original_terminal():
-    for terminal in ['"', "\\", "\n", "\r", "\t", "\x0c", "'", "\\\"", "a\\nb"]:
+    for terminal in ['"', "\\", "\n", "\r", "\t", "\x0c", "'", '\\"', "a\\nb"]:
         ir = _single_rule_ir("Foo", BabelSymbol(terminal))
         assert _execute(decode(ir, "Foo"))[0] == ("rule", "Foo", terminal)
 

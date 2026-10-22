@@ -19,4 +19,6 @@ def encode(string: str) -> BabelIr:
     return decode_antlr_ir_to_babel_ir(antlr_ir)
     # Dont use visitor do it functionaliy instaed
     # For ease hook onto every parser and lexer rule and parse them to a production. Same with fragment rules
-__all__ = ['encode']
+
+
+__all__ = ["encode"]

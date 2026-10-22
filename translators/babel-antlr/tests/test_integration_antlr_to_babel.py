@@ -52,7 +52,9 @@ def test_antlr_grammar_translates_to_babel_ir():
     babel_ir = decode_antlr_ir_to_babel_ir(to_antlr_ir(GRAMMAR))
 
     skip = BabelStar(nt("ALL_ACTED_RULES_0__GENERATED"))
-    plus_minus = BabelBlockList([BabelBlock([BabelSymbol("+")]), BabelBlock([BabelSymbol("-")])])
+    plus_minus = BabelBlockList(
+        [BabelBlock([BabelSymbol("+")]), BabelBlock([BabelSymbol("-")])]
+    )
     tail = BabelBlockList([BabelBlock([plus_minus, skip, nt("term")])])
 
     assert babel_ir == BabelIr(
@@ -60,7 +62,15 @@ def test_antlr_grammar_translates_to_babel_ir():
             # parser rules, with skipped tokens allowed between every two elements
             "prog": prod([BabelPlus(nt("stmt")), skip, nt("EOF")]),
             "stmt": prod(
-                [nt("ID"), skip, BabelSymbol("="), skip, nt("expr"), skip, BabelSymbol(";")],
+                [
+                    nt("ID"),
+                    skip,
+                    BabelSymbol("="),
+                    skip,
+                    nt("expr"),
+                    skip,
+                    BabelSymbol(";"),
+                ],
                 [nt("expr"), skip, BabelSymbol(";")],
             ),
             "expr": prod([nt("term"), skip, BabelStar(tail)]),
@@ -75,16 +85,24 @@ def test_antlr_grammar_translates_to_babel_ir():
                 [nt("ID")], [nt("INT")], [nt("STRING")], [BabelSymbol("\t")]
             ),
             # skipped alternatives, one rule each
-            "ALL_ACTED_RULES_0__GENERATED": prod([nt("WS_0__GENERATED")], [nt("COMMENT_0__GENERATED")]),
+            "ALL_ACTED_RULES_0__GENERATED": prod(
+                [nt("WS_0__GENERATED")], [nt("COMMENT_0__GENERATED")]
+            ),
             # lexer rules: complete, so references to e.g. WS still match ' '
             "ID": prod([BabelPlus(BabelRawRegex("[a-z]"))]),
             "INT": prod([BabelPlus(BabelCharRange("0", "9"))]),
             "STRING": prod(
-                [BabelSymbol('"'), BabelStar(BabelRawRegex('[^"\\\\]')), BabelSymbol('"')]
+                [
+                    BabelSymbol('"'),
+                    BabelStar(BabelRawRegex('[^"\\\\]')),
+                    BabelSymbol('"'),
+                ]
             ),
             "WS": prod([BabelSymbol(" ")], [BabelSymbol("\t")]),
             "COMMENT": prod([BabelSymbol("#"), BabelStar(BabelRawRegex("[^\\n]"))]),
             "WS_0__GENERATED": prod([BabelSymbol(" ")]),
-            "COMMENT_0__GENERATED": prod([BabelSymbol("#"), BabelStar(BabelRawRegex("[^\\n]"))]),
+            "COMMENT_0__GENERATED": prod(
+                [BabelSymbol("#"), BabelStar(BabelRawRegex("[^\\n]"))]
+            ),
         }
     )

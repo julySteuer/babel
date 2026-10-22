@@ -34,8 +34,7 @@ def _encode_labeled_element(
         (
             block,
             lambda bl: encode_ebnf_suffix_with_inner(
-                ebnf_suffix,
-                _encode_alt_list(bl.altList())
+                ebnf_suffix, _encode_alt_list(bl.altList())
             ),
         ),
     )
@@ -72,7 +71,10 @@ def _encode_atom(
     inner = exec_first_valid(
         (terminal_def, lambda elem: encode_terminal_def(elem, AntlrParserNonterminal)),
         (ruleref, _encode_ruleref),
-        (not_set, lambda elem: encode_not_set(elem, AntlrParserNonterminal, AntlrParserBlock)),
+        (
+            not_set,
+            lambda elem: encode_not_set(elem, AntlrParserNonterminal, AntlrParserBlock),
+        ),
         (wildcard, lambda _: AntlrParserWildcard()),
     )
 
@@ -104,7 +106,9 @@ def _encode_labeled_alt(alt: ANTLRv4Parser.LabeledAltContext) -> AntlrBlock:
     return _encode_alternative(alt.alternative())
 
 
-def _encode_rule_alt_list(alt_list: ANTLRv4Parser.RuleAltListContext) -> list[AntlrBlock]:
+def _encode_rule_alt_list(
+    alt_list: ANTLRv4Parser.RuleAltListContext,
+) -> list[AntlrBlock]:
     return [
         _encode_labeled_alt(alt) for alt in alt_list.labeledAlt()
     ]  # Gets all alts even first one
@@ -115,7 +119,7 @@ def encode_parser_rule(
 ) -> tuple[str, AntlrParserProduction]:
     name = parser_rule.RULE_REF().getText()
     return name, AntlrParserProduction(
-            AntlrBlockList(_encode_rule_alt_list(parser_rule.ruleBlock().ruleAltList()))
+        AntlrBlockList(_encode_rule_alt_list(parser_rule.ruleBlock().ruleAltList()))
     )
 
 

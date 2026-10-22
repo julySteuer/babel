@@ -38,9 +38,7 @@ def reset_name_generator():
 def _single_rule_ir(name: str, *atoms: BabelAtom) -> BabelIr:
     return BabelIr(
         production_rules={
-            name: BabelProduction(
-                BabelBlockList(opts=[BabelBlock(atoms=list(atoms))])
-            )
+            name: BabelProduction(BabelBlockList(opts=[BabelBlock(atoms=list(atoms))]))
         }
     )
 
@@ -121,7 +119,10 @@ def test_star_desugars_to_right_recursive_rule():
                             "Foo_0__GENERATED",
                             options=[
                                 NautilusBlock(
-                                    [NautilusTerminal("a"), NautilusNonterminal("Foo_0__GENERATED")]
+                                    [
+                                        NautilusTerminal("a"),
+                                        NautilusNonterminal("Foo_0__GENERATED"),
+                                    ]
                                 ),
                                 NautilusBlock([]),
                             ],
@@ -148,7 +149,10 @@ def test_plus_desugars_to_recursive_rule_with_non_empty_base_case():
                             "Foo_0__GENERATED",
                             options=[
                                 NautilusBlock(
-                                    [NautilusTerminal("a"), NautilusNonterminal("Foo_0__GENERATED")]
+                                    [
+                                        NautilusTerminal("a"),
+                                        NautilusNonterminal("Foo_0__GENERATED"),
+                                    ]
                                 ),
                                 NautilusBlock([NautilusTerminal("a")]),
                             ],
@@ -182,7 +186,9 @@ def test_nested_star_inside_optional_derives_names_from_parent_scope():
                                                 NautilusBlock(
                                                     [
                                                         NautilusTerminal("a"),
-                                                        NautilusNonterminal("Foo_0__GENERATED_0__GENERATED"),
+                                                        NautilusNonterminal(
+                                                            "Foo_0__GENERATED_0__GENERATED"
+                                                        ),
                                                     ]
                                                 ),
                                                 NautilusBlock([]),
@@ -204,7 +210,9 @@ def test_multiple_rules_are_each_decoded_independently():
     ir = BabelIr(
         production_rules={
             "Foo": BabelProduction(
-                BabelBlockList(opts=[BabelBlock(atoms=[BabelOptional(BabelSymbol("a"))])])
+                BabelBlockList(
+                    opts=[BabelBlock(atoms=[BabelOptional(BabelSymbol("a"))])]
+                )
             ),
             "Bar": BabelProduction(
                 BabelBlockList(opts=[BabelBlock(atoms=[BabelStar(BabelSymbol("b"))])])
@@ -225,12 +233,18 @@ def test_multiple_rules_are_each_decoded_independently():
 
 def test_raw_regex_with_non_ascii_range_is_clamped():
     ir = _single_rule_ir("Foo", BabelRawRegex("[a\\u00c0-\\u00d6]"))
-    assert decode_ir(ir) == [NautilusExpr("Foo", options=[NautilusBlock([NautilusRegex("[\\x61]")])])]
+    assert decode_ir(ir) == [
+        NautilusExpr("Foo", options=[NautilusBlock([NautilusRegex("[\\x61]")])])
+    ]
 
 
 def test_wildcard_regex_is_restricted_to_ascii():
     ir = _single_rule_ir("Foo", BabelRawRegex("."))
-    assert decode_ir(ir) == [NautilusExpr("Foo", options=[NautilusBlock([NautilusRegex("[\\x00-\\x09\\x0B-\\x7F]")])])]
+    assert decode_ir(ir) == [
+        NautilusExpr(
+            "Foo", options=[NautilusBlock([NautilusRegex("[\\x00-\\x09\\x0B-\\x7F]")])]
+        )
+    ]
 
 
 def test_alternative_without_any_ascii_match_is_dropped():
@@ -238,14 +252,21 @@ def test_alternative_without_any_ascii_match_is_dropped():
         {
             "Foo": BabelProduction(
                 BabelBlockList(
-                    [BabelBlock([BabelSymbol("a")]), BabelBlock([BabelRawRegex("[\\u3040-\\u318f]")])]
+                    [
+                        BabelBlock([BabelSymbol("a")]),
+                        BabelBlock([BabelRawRegex("[\\u3040-\\u318f]")]),
+                    ]
                 )
             )
         }
     )
-    assert decode_ir(ir) == [NautilusExpr("Foo", options=[NautilusBlock([NautilusTerminal("a")])])]
+    assert decode_ir(ir) == [
+        NautilusExpr("Foo", options=[NautilusBlock([NautilusTerminal("a")])])
+    ]
 
 
 def test_rule_with_only_unmatchable_alternatives_falls_back_to_printable_ascii():
     ir = _single_rule_ir("Foo", BabelRawRegex("[\\u3040-\\u318f]"))
-    assert decode_ir(ir) == [NautilusExpr("Foo", options=[NautilusBlock([NautilusRegex("[ -~]")])])]
+    assert decode_ir(ir) == [
+        NautilusExpr("Foo", options=[NautilusBlock([NautilusRegex("[ -~]")])])
+    ]

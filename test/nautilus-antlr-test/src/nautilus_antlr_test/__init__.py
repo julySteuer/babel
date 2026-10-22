@@ -31,7 +31,9 @@ class GrammarUnit:
 
 
 def clone_grammars_v4(dest: Path) -> Path:
-    subprocess.run(["git", "clone", "--depth", "1", GRAMMARS_V4_URL, str(dest)], check=True)
+    subprocess.run(
+        ["git", "clone", "--depth", "1", GRAMMARS_V4_URL, str(dest)], check=True
+    )
     return dest
 
 
@@ -56,9 +58,15 @@ def discover_units(root: Path) -> list[GrammarUnit]:
             if f.stem.endswith("Lexer"):
                 parser_file = by_name.get(f"{f.stem[: -len('Lexer')]}Parser.g4")
                 if parser_file is not None:
-                    units.append(GrammarUnit(name=f.stem[: -len("Lexer")], files=[parser_file, f]))
+                    units.append(
+                        GrammarUnit(
+                            name=f.stem[: -len("Lexer")], files=[parser_file, f]
+                        )
+                    )
                     paired.update([f, parser_file])
-        units.extend(GrammarUnit(name=f.stem, files=[f]) for f in files if f not in paired)
+        units.extend(
+            GrammarUnit(name=f.stem, files=[f]) for f in files if f not in paired
+        )
     return units
 
 
@@ -75,10 +83,16 @@ def build_fuzzer() -> None:
 def translate_to_nautilus(unit: GrammarUnit, start_symbol: str, output: Path) -> None:
     subprocess.run(
         [
-            "uv", "run", "babel-cli", "translate",
-            "-i", *(str(f) for f in unit.files),
-            "-o", str(output),
-            "-s", start_symbol,
+            "uv",
+            "run",
+            "babel-cli",
+            "translate",
+            "-i",
+            *(str(f) for f in unit.files),
+            "-o",
+            str(output),
+            "-s",
+            start_symbol,
         ],
         cwd=REPO_ROOT,
         check=True,
@@ -89,28 +103,43 @@ def translate_to_nautilus(unit: GrammarUnit, start_symbol: str, output: Path) ->
 
 def run_fuzzer(nautilus_grammar: Path, unit: GrammarUnit, repetitions: int) -> dict:
     result = subprocess.run(
-        [str(FUZZER_BIN), str(nautilus_grammar), str(repetitions), *(str(f) for f in unit.files)],
+        [
+            str(FUZZER_BIN),
+            str(nautilus_grammar),
+            str(repetitions),
+            *(str(f) for f in unit.files),
+        ],
         capture_output=True,
         text=True,
         timeout=300,
         check=False,
     )
     if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "fuzzer exited with a non-zero status")
+        raise RuntimeError(
+            result.stderr.strip() or "fuzzer exited with a non-zero status"
+        )
     return json.loads(result.stdout.strip().splitlines()[-1])
 
 
 def evaluate_unit(unit: GrammarUnit, repetitions: int, work_dir: Path) -> dict:
     start_symbol = first_parser_rule(unit)
     if start_symbol is None:
-        return {"name": unit.name, "status": "skipped", "reason": "no parser rules found"}
+        return {
+            "name": unit.name,
+            "status": "skipped",
+            "reason": "no parser rules found",
+        }
 
     nautilus_grammar = work_dir / f"{unit.name}.py"
     try:
         translate_to_nautilus(unit, start_symbol, nautilus_grammar)
         report = run_fuzzer(nautilus_grammar, unit, repetitions)
     except subprocess.CalledProcessError as err:
-        return {"name": unit.name, "status": "error", "reason": (err.stderr or str(err)).strip()}
+        return {
+            "name": unit.name,
+            "status": "error",
+            "reason": (err.stderr or str(err)).strip(),
+        }
     except Exception as err:  # noqa: BLE001 - every failure is a data point for the score
         return {"name": unit.name, "status": "error", "reason": str(err).strip()}
 
@@ -138,13 +167,15 @@ def report(results: list[dict]) -> None:
 
     for r in results:
         if r["status"] == "ok":
-            table.add_row([
-                r["name"],
-                r["status"],
-                f"{r['coverage']:.2%}",
-                f"{r['visited_rules']}/{r['total_rules']}",
-                "",
-            ])
+            table.add_row(
+                [
+                    r["name"],
+                    r["status"],
+                    f"{r['coverage']:.2%}",
+                    f"{r['visited_rules']}/{r['total_rules']}",
+                    "",
+                ]
+            )
         else:
             table.add_row([r["name"], r["status"], "-", "-", r.get("reason", "")])
 
@@ -156,14 +187,28 @@ def report(results: list[dict]) -> None:
         f"Evaluated {summary['grammars_total']} grammar unit(s): "
         f"{summary['grammars_ok']} ok, {summary['grammars_skipped']} skipped, {summary['grammars_errored']} errored"
     )
-    print(f"Average rule coverage across successful runs: {summary['average_coverage']:.2%}")
+    print(
+        f"Average rule coverage across successful runs: {summary['average_coverage']:.2%}"
+    )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repetitions", type=int, default=200, help="fuzzer generations per grammar")
-    parser.add_argument("--limit", type=int, default=None, help="only evaluate the first N grammar units")
-    parser.add_argument("--grammars-dir", type=Path, default=None, help="reuse an existing grammars-v4 checkout instead of cloning")
+    parser.add_argument(
+        "--repetitions", type=int, default=200, help="fuzzer generations per grammar"
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="only evaluate the first N grammar units",
+    )
+    parser.add_argument(
+        "--grammars-dir",
+        type=Path,
+        default=None,
+        help="reuse an existing grammars-v4 checkout instead of cloning",
+    )
     args = parser.parse_args()
 
     build_fuzzer()
@@ -184,6 +229,8 @@ def main() -> None:
         work_dir = tmp_path / "nautilus-grammars"
         work_dir.mkdir(exist_ok=True)
 
-        results = [evaluate_unit(unit, args.repetitions, work_dir) for unit in tqdm(units)]
+        results = [
+            evaluate_unit(unit, args.repetitions, work_dir) for unit in tqdm(units)
+        ]
 
     report(results)

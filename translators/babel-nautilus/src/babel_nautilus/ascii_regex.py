@@ -24,12 +24,12 @@ def _read_char(body: str, i: int) -> tuple[int, int]:
         raise _Unsupported
     escaped = body[i + 1]
     if escaped == "u":
-        if body[i + 2:i + 3] == "{":
+        if body[i + 2 : i + 3] == "{":
             end = body.index("}", i)
-            return int(body[i + 3:end], 16), end + 1
-        return int(body[i + 2:i + 6], 16), i + 6
+            return int(body[i + 3 : end], 16), end + 1
+        return int(body[i + 2 : i + 6], 16), i + 6
     if escaped == "x":
-        return int(body[i + 2:i + 4], 16), i + 4
+        return int(body[i + 2 : i + 4], 16), i + 4
     if escaped in "pPdDwWsS":
         raise _Unsupported
     return _SIMPLE_ESCAPES.get(escaped, ord(escaped)), i + 2
@@ -43,7 +43,7 @@ def _parse_class(regex: str) -> tuple[bool, list[tuple[int, int]]]:
     while i < len(body):
         low, i = _read_char(body, i)
         high = low
-        if body[i:i + 1] == "-" and i + 1 < len(body):
+        if body[i : i + 1] == "-" and i + 1 < len(body):
             high, i = _read_char(body, i + 1)
         ranges.append((low, high))
     return negated, ranges
@@ -56,9 +56,14 @@ def _to_class(codes: list[int]) -> str:
             spans[-1][1] = code
         else:
             spans.append([code, code])
-    return "[" + "".join(
-        f"\\x{low:02X}" if low == high else f"\\x{low:02X}-\\x{high:02X}" for low, high in spans
-    ) + "]"
+    return (
+        "["
+        + "".join(
+            f"\\x{low:02X}" if low == high else f"\\x{low:02X}-\\x{high:02X}"
+            for low, high in spans
+        )
+        + "]"
+    )
 
 
 def restrict_to_ascii(regex: str) -> str:

@@ -38,6 +38,7 @@ from babel_ir.model import (
 )
 from babel_shared.name_generator import stateful_name_generator
 
+
 # https://stackoverflow.com/questions/5920643/add-an-item-between-each-item-already-in-the-list
 def _tween(seq, sep):
     return reduce(lambda r, v: r + [sep, v], seq[1:], seq[:1])
@@ -52,7 +53,9 @@ def _char_class_body(atom: AntlrAtom) -> str:
         case AntlrSymbol(terminal):
             return "".join(_escape_char_class_char(c) for c in terminal)
         case AntlrCharRange(beginning, end):
-            return f"{_escape_char_class_char(beginning)}-{_escape_char_class_char(end)}"
+            return (
+                f"{_escape_char_class_char(beginning)}-{_escape_char_class_char(end)}"
+            )
         case AntlrNumRange(beginning, end):
             return f"{beginning}-{end}"
         case AntlrRawRegex(raw) if raw.startswith("[") and raw.endswith("]"):
@@ -73,7 +76,12 @@ def _decode_not(atom: AntlrNot) -> BabelAtom:
 class _Scope:
     """What differs between decoding a lexer rule and a parser rule."""
 
-    def __init__(self, wildcard: BabelAtom, separator: BabelAtom | None = None, negation: bool = True):
+    def __init__(
+        self,
+        wildcard: BabelAtom,
+        separator: BabelAtom | None = None,
+        negation: bool = True,
+    ):
         self.wildcard = wildcard
         self.separator = separator
         self.negation = negation
@@ -126,23 +134,37 @@ def _lexer_scope() -> _Scope:
     return _Scope(BabelRawRegex("."))
 
 
-def _generate_acted_productions(action_blocks: list[tuple[str, ActedAntlrLexerBlock]]) -> dict[str, AntlrLexerProduction]:
+def _generate_acted_productions(
+    action_blocks: list[tuple[str, ActedAntlrLexerBlock]],
+) -> dict[str, AntlrLexerProduction]:
     return {
-        stateful_name_generator.generate_for(name): AntlrLexerProduction(AntlrBlockList([block]))
+        stateful_name_generator.generate_for(name): AntlrLexerProduction(
+            AntlrBlockList([block])
+        )
         for name, block in action_blocks
     }
 
 
-def _lexer_productions(production_rules: dict[str, AntlrProduction]) -> dict[str, AntlrProduction]:
-    return {name: production for name, production in production_rules.items() if isinstance(production, AntlrLexerProduction)}
+def _lexer_productions(
+    production_rules: dict[str, AntlrProduction],
+) -> dict[str, AntlrProduction]:
+    return {
+        name: production
+        for name, production in production_rules.items()
+        if isinstance(production, AntlrLexerProduction)
+    }
 
 
-def _all_lexer_rule_options(lexer_productions: dict[str, AntlrProduction]) -> list[BabelBlock]:
+def _all_lexer_rule_options(
+    lexer_productions: dict[str, AntlrProduction],
+) -> list[BabelBlock]:
     scope = _lexer_scope()
     options: list[BabelBlock] = []
     for name, production in lexer_productions.items():
         opts = production.production.opts
-        regular = [block for block in opts if not isinstance(block, ActedAntlrLexerBlock)]
+        regular = [
+            block for block in opts if not isinstance(block, ActedAntlrLexerBlock)
+        ]
         if len(regular) == len(opts):
             options.append(BabelBlock([BabelNonterminal(name)]))
         else:
@@ -150,7 +172,9 @@ def _all_lexer_rule_options(lexer_productions: dict[str, AntlrProduction]) -> li
     return options
 
 
-def _decode_lexer_rules(productions: dict[str, AntlrProduction]) -> dict[str, BabelProduction]:
+def _decode_lexer_rules(
+    productions: dict[str, AntlrProduction],
+) -> dict[str, BabelProduction]:
     scope = _lexer_scope()
     return {
         name: BabelProduction(_decode_block_list(production.production, scope))
@@ -158,13 +182,17 @@ def _decode_lexer_rules(productions: dict[str, AntlrProduction]) -> dict[str, Ba
     }
 
 
-def _generate_choice_rule(base_name: str, options: list[BabelBlock]) -> tuple[str, BabelProduction]:
+def _generate_choice_rule(
+    base_name: str, options: list[BabelBlock]
+) -> tuple[str, BabelProduction]:
     # TODO: Stateful name generator needs to be aware of all the names that exist to generate collision free names
     name = stateful_name_generator.generate_for(base_name)
     return name, BabelProduction(BabelBlockList(options))
 
 
-def _decode_parser_rules(production_rules: dict[str, AntlrProduction], scope: _Scope) -> dict[str, BabelProduction]:
+def _decode_parser_rules(
+    production_rules: dict[str, AntlrProduction], scope: _Scope
+) -> dict[str, BabelProduction]:
     return {
         name: BabelProduction(_decode_block_list(production.production, scope))
         for name, production in production_rules.items()
@@ -190,11 +218,16 @@ def decode_antlr_ir_to_babel_ir(antlr_ir: AntlrIr) -> BabelIr:
 
     separator = None
     if acted_productions:
-        name, production = _generate_choice_rule("ALL_ACTED_RULES", [BabelBlock([BabelNonterminal(rule)]) for rule in acted_productions])
+        name, production = _generate_choice_rule(
+            "ALL_ACTED_RULES",
+            [BabelBlock([BabelNonterminal(rule)]) for rule in acted_productions],
+        )
         generated_rules[name] = production
         separator = BabelStar(BabelNonterminal(name))
 
-    parser_rules = _decode_parser_rules(production_rules, _Scope(wildcard, separator, negation=False))
+    parser_rules = _decode_parser_rules(
+        production_rules, _Scope(wildcard, separator, negation=False)
+    )
     lexer_rules = _decode_lexer_rules(lexer_productions | acted_productions)
 
     return BabelIr(parser_rules | generated_rules | lexer_rules)

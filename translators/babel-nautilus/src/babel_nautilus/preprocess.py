@@ -14,10 +14,10 @@ def _generate_start_symbol_rule(start_symbol_name: str) -> BabelProduction:
         BabelBlockList([BabelBlock([BabelNonterminal(start_symbol_name)])])
     )
 
+
 def _generate_eof_symbol_rule() -> BabelProduction:
-    return BabelProduction(
-        BabelBlockList([BabelBlock([])])
-    )
+    return BabelProduction(BabelBlockList([BabelBlock([])]))
+
 
 def add_start_rule(old_ir: BabelIr, start_symbol_name: str) -> BabelIr:
     # TODO: Disambiguate start symbol here

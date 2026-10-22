@@ -65,9 +65,7 @@ def test_multiple_options_produce_one_rule_with_one_block_per_option():
         ],
     )
 
-    assert decode_to_rules([expr]) == [
-        Rule("Outer", [RuleBlock("a"), RuleBlock("b")])
-    ]
+    assert decode_to_rules([expr]) == [Rule("Outer", [RuleBlock("a"), RuleBlock("b")])]
 
 
 def test_regex_atom_in_a_mixed_block_is_extracted_into_a_rule_before_its_parent():

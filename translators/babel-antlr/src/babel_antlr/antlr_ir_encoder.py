@@ -14,15 +14,23 @@ def _encode_rule(rule: ANTLRv4Parser.RuleSpecContext) -> tuple[str, AntlrProduct
     parser_rule = rule.parserRuleSpec()
 
     # Ternary to check which branch is active. Implicitly the other one is valid
-    return exec_first_valid((lexer_rule, encode_lexer_rule), (parser_rule, encode_parser_rule)) # TODO: make a first macth function that only executes the only match for alt options
+    return exec_first_valid(
+        (lexer_rule, encode_lexer_rule), (parser_rule, encode_parser_rule)
+    )  # TODO: make a first macth function that only executes the only match for alt options
 
-def _encode_rules(rules: ANTLRv4Parser.ParserRuleSpecContext) -> list[tuple[str, AntlrProduction]]:
+
+def _encode_rules(
+    rules: ANTLRv4Parser.ParserRuleSpecContext,
+) -> list[tuple[str, AntlrProduction]]:
     children = rules.children
     if children is None:
         return []
     return [_encode_rule(rule) for rule in children]
 
-def _find_action_rules(productions: dict[str, AntlrProduction]) -> list[tuple[str, ActedAntlrLexerBlock]]:
+
+def _find_action_rules(
+    productions: dict[str, AntlrProduction],
+) -> list[tuple[str, ActedAntlrLexerBlock]]:
     return [
         (name, block)
         for name, production in productions.items()
@@ -30,10 +38,14 @@ def _find_action_rules(productions: dict[str, AntlrProduction]) -> list[tuple[st
         if isinstance(block, ActedAntlrLexerBlock)
     ]
 
-def encode_to_antlr_ir(grammar_spec_context: ANTLRv4Parser.GrammarSpecContext) -> AntlrIr:
+
+def encode_to_antlr_ir(
+    grammar_spec_context: ANTLRv4Parser.GrammarSpecContext,
+) -> AntlrIr:
     productions = _encode_rules(grammar_spec_context.rules())
-    ir = { key: value for key, value in productions }
+    ir = {key: value for key, value in productions}
     action_rules = _find_action_rules(ir)
     return AntlrIr(ir, action_rules)
+
 
 __all__ = ["encode_to_antlr_ir"]

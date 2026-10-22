@@ -27,7 +27,9 @@ from ._helpers import rule, to_antlr_ir
 
 
 def lexer(*alts: list) -> AntlrLexerProduction:
-    return AntlrLexerProduction(AntlrBlockList([RegularAntlrLexerBlock(a) for a in alts]))
+    return AntlrLexerProduction(
+        AntlrBlockList([RegularAntlrLexerBlock(a) for a in alts])
+    )
 
 
 def parser(*alts: list) -> AntlrParserProduction:
@@ -35,7 +37,11 @@ def parser(*alts: list) -> AntlrParserProduction:
 
 
 def _atoms(atoms: tuple) -> list:
-    return list(atoms[0]) if len(atoms) == 1 and isinstance(atoms[0], list) else list(atoms)
+    return (
+        list(atoms[0])
+        if len(atoms) == 1 and isinstance(atoms[0], list)
+        else list(atoms)
+    )
 
 
 def lblock(*atoms) -> RegularAntlrLexerBlock:
@@ -76,8 +82,13 @@ def test_production_holds_block_list_directly():
 
 def test_block_types_follow_rule_kind():
     ir = to_antlr_ir("grammar T;\np: a | b ;\nA: 'a' | 'b' ;\n")
-    assert all(type(b) is AntlrParserBlock for b in ir.production_rules["p"].production.opts)
-    assert all(type(b) is RegularAntlrLexerBlock for b in ir.production_rules["A"].production.opts)
+    assert all(
+        type(b) is AntlrParserBlock for b in ir.production_rules["p"].production.opts
+    )
+    assert all(
+        type(b) is RegularAntlrLexerBlock
+        for b in ir.production_rules["A"].production.opts
+    )
 
 
 def test_plain_rules_have_no_action_blocks():
@@ -124,7 +135,11 @@ def test_lexer_suffixes():
 
 def test_lexer_block_with_suffix():
     assert rule("A: ('a' | 'b')+ ;", "A") == lexer(
-        [AntlrPlus(AntlrBlockList([lblock([AntlrSymbol("a")]), lblock([AntlrSymbol("b")])]))]
+        [
+            AntlrPlus(
+                AntlrBlockList([lblock([AntlrSymbol("a")]), lblock([AntlrSymbol("b")])])
+            )
+        ]
     )
 
 
@@ -163,7 +178,9 @@ def test_parser_not_block_set_is_a_parser_block():
 
 
 def test_parser_rule_reference():
-    assert rule("r: other ;\nother: X ;", "r") == parser([AntlrParserNonterminal("other")])
+    assert rule("r: other ;\nother: X ;", "r") == parser(
+        [AntlrParserNonterminal("other")]
+    )
 
 
 def test_parser_token_reference():
@@ -196,13 +213,26 @@ def test_parser_suffixes():
 
 def test_parser_block_without_suffix():
     assert rule("r: (a | b) ;", "r") == parser(
-        [AntlrBlockList([pblock([AntlrParserNonterminal("a")]), pblock([AntlrParserNonterminal("b")])])]
+        [
+            AntlrBlockList(
+                [
+                    pblock([AntlrParserNonterminal("a")]),
+                    pblock([AntlrParserNonterminal("b")]),
+                ]
+            )
+        ]
     )
 
 
 def test_parser_block_with_suffix():
     assert rule("r: (a b)* ;", "r") == parser(
-        [AntlrStar(AntlrBlockList([pblock([AntlrParserNonterminal("a"), AntlrParserNonterminal("b")])]))]
+        [
+            AntlrStar(
+                AntlrBlockList(
+                    [pblock([AntlrParserNonterminal("a"), AntlrParserNonterminal("b")])]
+                )
+            )
+        ]
     )
 
 
@@ -224,7 +254,14 @@ def test_parser_labeled_element_with_suffix():
 
 def test_parser_labeled_block():
     assert rule("r: l=(a | b) ;", "r") == parser(
-        [AntlrBlockList([pblock([AntlrParserNonterminal("a")]), pblock([AntlrParserNonterminal("b")])])]
+        [
+            AntlrBlockList(
+                [
+                    pblock([AntlrParserNonterminal("a")]),
+                    pblock([AntlrParserNonterminal("b")]),
+                ]
+            )
+        ]
     )
 
 
@@ -308,7 +345,9 @@ def test_every_acted_alternative_of_a_rule_is_listed():
 
 
 def test_action_blocks_keep_grammar_order_across_rules():
-    ir = to_antlr_ir("grammar T;\nA: 'a' -> skip ;\nB: 'b' ;\nC: 'c' -> channel(HIDDEN) ;\n")
+    ir = to_antlr_ir(
+        "grammar T;\nA: 'a' -> skip ;\nB: 'b' ;\nC: 'c' -> channel(HIDDEN) ;\n"
+    )
     assert [name for name, _ in ir.action_blocks] == ["A", "C"]
 
 
@@ -335,7 +374,7 @@ def test_parser_rules_never_produce_action_blocks():
         (r"'\r'", "\r"),
         (r"'\t'", "\t"),
         (r"'\u000C'", "\x0c"),
-        (r"'\u{1F600}'", "\U0001F600"),
+        (r"'\u{1F600}'", "\U0001f600"),
         (r"'a\'b'", "a'b"),
         (r"'\\n'", "\\n"),  # escaped backslash followed by a plain n
     ],
@@ -345,7 +384,9 @@ def test_string_literal_escapes_are_resolved(literal, expected):
 
 
 def test_char_range_escapes_are_resolved():
-    assert rule(r"A: '\u0000'..'\u001F' ;", "A") == lexer([AntlrCharRange("\x00", "\x1f")])
+    assert rule(r"A: '\u0000'..'\u001F' ;", "A") == lexer(
+        [AntlrCharRange("\x00", "\x1f")]
+    )
 
 
 def test_char_sets_stay_raw_regex():

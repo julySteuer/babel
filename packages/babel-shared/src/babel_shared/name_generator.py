@@ -3,6 +3,8 @@ This might lead to problems with colission if another rule was initaliy named te
 TODO: Add initial hydration via ir so that if a names does appear it will get skipped
 TODO: Make this `contextvar` so it does not behave as uncontrolably as globals tend to do
 """
+
+
 class NameGenerator:
     def __init__(self):
         self.counter: dict[str, int] = {}
@@ -17,6 +19,7 @@ class NameGenerator:
         self.counter[name] += 1
         return child_name
 
+
 stateful_name_generator = NameGenerator()
 
-__all__ = ['stateful_name_generator']
+__all__ = ["stateful_name_generator"]
