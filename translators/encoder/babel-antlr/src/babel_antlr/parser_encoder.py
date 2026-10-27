@@ -99,7 +99,8 @@ def _encode_element(
 
 
 def _encode_alternative(alternative: ANTLRv4Parser.AlternativeContext) -> AntlrBlock:
-    return AntlrParserBlock([_encode_element(elem) for elem in alternative.element()])
+    encoded = (_encode_element(elem) for elem in alternative.element())
+    return AntlrParserBlock([atom for atom in encoded if atom is not None])
 
 
 def _encode_labeled_alt(alt: ANTLRv4Parser.LabeledAltContext) -> AntlrBlock:

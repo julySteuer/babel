@@ -2,3 +2,6 @@ just_dir := justfile_dir()
 
 test repetitions limit:
     uv run nautilus-antlr-test --limit {{limit}} --repetitions {{repetitions}}
+
+test_translate:
+    uv run nautilus-antlr-test --translate-only

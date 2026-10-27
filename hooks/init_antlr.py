@@ -13,6 +13,7 @@ class InitAntlrOnStartHook(BuildHookInterface):
         base_antlr4_download_path = Path(
             Path(self.root)
             / "translators"
+            / "encoder"
             / "babel-antlr"
             / "src"
             / "babel_antlr"

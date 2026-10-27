@@ -16,7 +16,7 @@ ground.
 import pytest
 
 from babel_core.domain import generate_nautilus
-from babel_nautilus.name_generator import stateful_name_generator
+from babel_nautilus import stateful_name_generator
 
 
 @pytest.fixture(autouse=True)

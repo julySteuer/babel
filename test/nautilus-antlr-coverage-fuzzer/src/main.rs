@@ -10,26 +10,28 @@ use std::path::PathBuf;
 use std::process::exit;
 use std::time::{Duration, Instant};
 
+use libafl::HasMetadata;
 use libafl::corpus::{Corpus, InMemoryCorpus};
 use libafl::feedbacks::ConstFeedback;
-use libafl::fuzzer::{Evaluator, Fuzzer, HasFeedback, StdFuzzer};
 use libafl::feedbacks::NautilusChunksMetadata;
-use libafl::mutators::{HavocScheduledMutator, NautilusRandomMutator, NautilusRecursionMutator, NautilusSpliceMutator};
-use libafl::stages::StdMutationalStage;
-use libafl::stages::generation::GenStage;
-use libafl::state::HasCorpus;
-use libafl::HasMetadata;
-use libafl::state::HasExecutions;
-use libafl_bolts::tuples::tuple_list;
-use std::num::NonZeroUsize;
+use libafl::fuzzer::{Evaluator, Fuzzer, HasFeedback, StdFuzzer};
 use libafl::generators::Generator;
 use libafl::generators::nautilus::{NautilusContext, NautilusGenerator};
 use libafl::inputs::nautilus::NautilusInput;
+use libafl::mutators::{
+    HavocScheduledMutator, NautilusRandomMutator, NautilusRecursionMutator, NautilusSpliceMutator,
+};
 use libafl::schedulers::QueueScheduler;
+use libafl::stages::StdMutationalStage;
+use libafl::stages::generation::GenStage;
+use libafl::state::HasCorpus;
+use libafl::state::HasExecutions;
 use libafl::state::StdState;
 use libafl_bolts::current_nanos;
 use libafl_bolts::rands::StdRand;
+use libafl_bolts::tuples::tuple_list;
 use serde::Serialize;
+use std::num::NonZeroUsize;
 
 use executor::AntlrParseExecutor;
 use feedback::RuleCoverageFeedback;
@@ -76,7 +78,9 @@ fn main() {
     while let Some(arg) = raw_args.next() {
         match arg.as_str() {
             "--tui" => use_tui = true,
-            "--timeout" => stop.timeout = Some(Duration::from_secs_f64(parse_flag(&arg, raw_args.next()))),
+            "--timeout" => {
+                stop.timeout = Some(Duration::from_secs_f64(parse_flag(&arg, raw_args.next())))
+            }
             "--target-coverage" => stop.target_coverage = Some(parse_flag(&arg, raw_args.next())),
             "--mutations" => mutations = parse_flag(&arg, raw_args.next()),
             "--stall" => stop.stall_iterations = Some(parse_flag(&arg, raw_args.next())),
@@ -87,7 +91,8 @@ fn main() {
             _ => positional.push(arg),
         }
     }
-    let [nautilus_grammar_path, repetitions, antlr_grammar_paths @ ..] = positional.as_slice() else {
+    let [nautilus_grammar_path, repetitions, antlr_grammar_paths @ ..] = positional.as_slice()
+    else {
         eprintln!("{USAGE}");
         exit(1);
     };
@@ -115,7 +120,8 @@ fn main() {
     let antlr_sources: Vec<String> = antlr_grammar_paths
         .iter()
         .map(|path| {
-            std::fs::read_to_string(path).unwrap_or_else(|err| panic!("failed to read {path}: {err}"))
+            std::fs::read_to_string(path)
+                .unwrap_or_else(|err| panic!("failed to read {path}: {err}"))
         })
         .collect();
 
@@ -149,7 +155,8 @@ fn main() {
         &mut objective,
     )
     .expect("failed to build fuzzer state");
-    let chunk_dir = std::env::temp_dir().join(format!("nautilus-antlr-chunks-{}", std::process::id()));
+    let chunk_dir =
+        std::env::temp_dir().join(format!("nautilus-antlr-chunks-{}", std::process::id()));
     state.add_metadata(NautilusChunksMetadata::new(chunk_dir.display().to_string()));
 
     let mut fuzzer = StdFuzzer::new(QueueScheduler::new(), feedback, objective);
@@ -159,7 +166,14 @@ fn main() {
     // found new rules (subtree regeneration, recursion unrolling, splicing).
     let mutator = HavocScheduledMutator::new(tuple_list!(
         NautilusRandomMutator::new(&context),
+        NautilusRandomMutator::new(&context),
+        NautilusRandomMutator::new(&context),
+        NautilusRandomMutator::new(&context),
+        NautilusRandomMutator::new(&context),
+        NautilusRandomMutator::new(&context),
         NautilusRecursionMutator::new(&context),
+        NautilusSpliceMutator::new(&context),
+        NautilusSpliceMutator::new(&context),
         NautilusSpliceMutator::new(&context),
     ));
     let mut stages = tuple_list!(
