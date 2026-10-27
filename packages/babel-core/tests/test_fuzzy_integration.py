@@ -5,6 +5,7 @@ def _setup_fuzz_test():
     # yield the contant
     pass
 
+
 def _teardown_fuzz_test():
-    # delete temp dir 
+    # delete temp dir
     pass

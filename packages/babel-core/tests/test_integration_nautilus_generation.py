@@ -16,7 +16,7 @@ ground.
 import pytest
 
 from babel_core.domain import generate_nautilus
-from babel_nautilus.name_generator import stateful_name_generator
+from babel_nautilus import stateful_name_generator
 
 
 @pytest.fixture(autouse=True)
@@ -109,11 +109,11 @@ def test_generate_nautilus_compiles_a_larger_grammar_end_to_end():
             'ctx.rule("ID", "{LETTER}{ID_0__GENERATED}")',
             'ctx.rule("TAIL", "{LETTER}")',
             'ctx.rule("TAIL", "{DIGIT}")',
-            'ctx.regex("LETTER", "[\'a\'-\'z\']")',
+            "ctx.regex(\"LETTER\", \"['a'-'z']\")",
             'ctx.rule("INT_0__GENERATED", "{DIGIT}{INT_0__GENERATED}")',
             'ctx.rule("INT_0__GENERATED", "{DIGIT}")',
             'ctx.rule("INT", "{INT_0__GENERATED}")',
-            'ctx.regex("DIGIT", "[\'0\'-\'9\']")',
+            "ctx.regex(\"DIGIT\", \"['0'-'9']\")",
             'ctx.rule("STRING_0__GENERATED", "{INNERCHAR}{STRING_0__GENERATED}")',
             'ctx.rule("STRING_0__GENERATED", "")',
             'ctx.rule("STRING", "{QUOTE}{STRING_0__GENERATED}{QUOTE}")',

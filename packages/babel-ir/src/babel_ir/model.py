@@ -25,21 +25,16 @@ class BabelNonterminal(BabelAtom):
 class BabelOptional(BabelAtom):
     atom: BabelAtom  # Change this to aceppt block like structure
 
+
 @dataclass
 class BabelStar(BabelAtom):
     atom: BabelAtom
+
 
 @dataclass
 class BabelPlus(BabelAtom):
     atom: BabelAtom
 
-@dataclass
-class BabelNot(BabelAtom):
-    atom: BabelAtom
-
-@dataclass
-class BabelWildcard(BabelAtom):
-    pass
 
 @dataclass
 class BabelRange[RangeType](BabelTerminal, ABC):
@@ -56,19 +51,23 @@ class BabelCharRange(BabelRange[str]):
 class BabelNumRange(BabelRange[int]):
     pass
 
+
 # TODO: BabelRegex maybe that just takes a raw regex expression
 @dataclass
 class BabelRawRegex(BabelTerminal):
     raw: str
+
 
 # This should propably not be an atom. Tis from earliere TODO: Remove
 @dataclass
 class BabelBlock(BabelAtom):  # block1 | block2 | block3
     atoms: list[BabelAtom]
 
+
 @dataclass
 class BabelBlockList(BabelAtom):
     opts: list[BabelBlock]
+
 
 @dataclass
 class BabelProduction:

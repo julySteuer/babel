@@ -11,11 +11,19 @@ class InitAntlrOnStartHook(BuildHookInterface):
 
     def initialize(self, version: str, build_data: dict[str, Any]) -> None:
         base_antlr4_download_path = Path(
-            Path(self.root) / "translators" / "babel-antlr" / "src" / "babel_antlr" / "_generated"
+            Path(self.root)
+            / "translators"
+            / "encoder"
+            / "babel-antlr"
+            / "src"
+            / "babel_antlr"
+            / "_generated"
         )
         # TODO: Add A Environment Variable to trigger rebuild
         if base_antlr4_download_path.exists():
-            print("Skipping download and regeneration phase. When Rebuild requires re pulling delete the _generated directory from babel_antlr")
+            print(
+                "Skipping download and regeneration phase. When Rebuild requires re pulling delete the _generated directory from babel_antlr"
+            )
             return
 
         antlrv4_lexer_grammar_file = "ANTLRv4Lexer.g4"
