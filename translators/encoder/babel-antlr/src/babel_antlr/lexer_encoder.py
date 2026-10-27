@@ -59,7 +59,7 @@ def _encode_lexer_atom(lexer_atom: ANTLRv4Parser.LexerAtomContext) -> AntlrAtom:
 
 def _encode_lexer_element(
     lexer_element: ANTLRv4Parser.LexerElementContext,
-) -> AntlrAtom:
+) -> AntlrAtom | None:
     lexer_atom = lexer_element.lexerAtom()
     lexer_block = lexer_element.lexerBlock()
     ebnf_suffix = lexer_element.ebnfSuffix()
@@ -69,6 +69,8 @@ def _encode_lexer_element(
         (lexer_atom, _encode_lexer_atom), (lexer_block, _encode_lexer_block)
     )
 
+    if inner is None:  # lone action / predicate, emits no text
+        return None
     return encode_ebnf_suffix_with_inner(ebnf_suffix, inner)
 
 
@@ -88,7 +90,11 @@ def _get_channel(
 def _encode_lexer_alt(lexer_alt: ANTLRv4Parser.LexerAltContext) -> AntlrBlock:
     lexer_elements = lexer_alt.lexerElements().lexerElement()
     lexer_commands = lexer_alt.lexerCommands()
-    elements = [_encode_lexer_element(element) for element in lexer_elements]
+    elements = [
+        encoded
+        for encoded in map(_encode_lexer_element, lexer_elements)
+        if encoded is not None
+    ]
     if lexer_commands is None:
         return RegularAntlrLexerBlock(elements)
     lexer_commands = lexer_commands.lexerCommand()

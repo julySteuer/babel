@@ -23,6 +23,10 @@ def _python_string_literal_body(content: str) -> str:
                 escaped.append("\\t")
             case _ if ord(char) < 0x20 or ord(char) == 0x7F:
                 escaped.append(f"\\x{ord(char):02x}")
+            case _ if (
+                0xD800 <= ord(char) <= 0xDFFF
+            ):  # lone surrogates can't be encoded as utf-8
+                escaped.append(f"\\u{ord(char):04x}")
             case _:
                 escaped.append(char)
     return "".join(escaped)
