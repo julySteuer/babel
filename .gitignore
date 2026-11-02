@@ -6,3 +6,4 @@ gen
 .idea
 
 naut-test.py
+test/out/

@@ -1,7 +1,4 @@
-just_dir := justfile_dir()
-root_dir := canonicalize(just_dir / '..')
-
-fuzzer_dir := root_dir / 'nautilus-antlr-coverage-fuzzer'
+fuzzer_dir := just_dir / 'nautilus-antlr-coverage-fuzzer'
 manifest_file := fuzzer_dir / 'Cargo.toml'
 fuzzer_bin := fuzzer_dir / 'target' / 'release' / 'nautilus-antlr-coverage-fuzzer'
 translator_output := just_dir / 'naut-test.py'
