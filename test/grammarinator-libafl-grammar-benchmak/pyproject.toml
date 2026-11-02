@@ -7,7 +7,7 @@ authors = [
     { name = "julySteuer", email = "xghostx2709@gmail.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = ["matplotlib>=3.9", "tqdm>=4.70.0"]
 
 [project.scripts]
 grammarinator-libafl-grammar-benchmak = "grammarinator_libafl_grammar_benchmak:main"
