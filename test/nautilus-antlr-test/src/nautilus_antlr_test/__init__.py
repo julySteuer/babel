@@ -101,10 +101,13 @@ def translate_to_nautilus(unit: GrammarUnit, start_symbol: str, output: Path) ->
     )
 
 
-def run_fuzzer(nautilus_grammar: Path, unit: GrammarUnit, repetitions: int) -> dict:
+def run_fuzzer(
+    nautilus_grammar: Path, unit: GrammarUnit, repetitions: int, tree_size: int | None
+) -> dict:
     result = subprocess.run(
         [
             str(FUZZER_BIN),
+            *(["--tree-size", str(tree_size)] if tree_size is not None else []),
             str(nautilus_grammar),
             str(repetitions),
             *(str(f) for f in unit.files),
@@ -122,7 +125,11 @@ def run_fuzzer(nautilus_grammar: Path, unit: GrammarUnit, repetitions: int) -> d
 
 
 def evaluate_unit(
-    unit: GrammarUnit, repetitions: int, work_dir: Path, translate_only: bool = False
+    unit: GrammarUnit,
+    repetitions: int,
+    work_dir: Path,
+    translate_only: bool = False,
+    tree_size: int | None = None,
 ) -> dict:
     start_symbol = first_parser_rule(unit)
     if start_symbol is None:
@@ -137,7 +144,7 @@ def evaluate_unit(
         translate_to_nautilus(unit, start_symbol, nautilus_grammar)
         if translate_only:
             return {"name": unit.name, "status": "ok"}
-        report = run_fuzzer(nautilus_grammar, unit, repetitions)
+        report = run_fuzzer(nautilus_grammar, unit, repetitions, tree_size)
     except subprocess.CalledProcessError as err:
         return {
             "name": unit.name,
@@ -217,6 +224,12 @@ def main() -> None:
         help="reuse an existing grammars-v4 checkout instead of cloning",
     )
     parser.add_argument(
+        "--tree-size",
+        type=int,
+        default=None,
+        help="max rule applications in a generated tree (fuzzer default if unset)",
+    )
+    parser.add_argument(
         "--translate-only",
         action="store_true",
         help="only translate every grammar to a nautilus grammar (no fuzzing) "
@@ -244,7 +257,9 @@ def main() -> None:
         work_dir.mkdir(exist_ok=True)
 
         results = [
-            evaluate_unit(unit, args.repetitions, work_dir, args.translate_only)
+            evaluate_unit(
+                unit, args.repetitions, work_dir, args.translate_only, args.tree_size
+            )
             for unit in tqdm(units)
         ]
 

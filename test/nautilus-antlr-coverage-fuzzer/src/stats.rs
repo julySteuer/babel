@@ -81,7 +81,11 @@ impl FuzzStats {
 
     pub fn iterations_per_sec(&self) -> f64 {
         let secs = self.elapsed.as_secs_f64();
-        if secs > 0.0 { self.iterations as f64 / secs } else { 0.0 }
+        if secs > 0.0 {
+            self.iterations as f64 / secs
+        } else {
+            0.0
+        }
     }
 
     pub fn since_last_new(&self) -> usize {
@@ -125,16 +129,28 @@ impl FuzzStats {
     }
 
     pub fn check_stop(&self, conditions: &StopConditions) -> Option<StopReason> {
-        if conditions.max_iterations.is_some_and(|max| self.iterations >= max) {
+        if conditions
+            .max_iterations
+            .is_some_and(|max| self.iterations >= max)
+        {
             return Some(StopReason::MaxIterations);
         }
-        if conditions.timeout.is_some_and(|limit| self.elapsed >= limit) {
+        if conditions
+            .timeout
+            .is_some_and(|limit| self.elapsed >= limit)
+        {
             return Some(StopReason::Timeout);
         }
-        if conditions.target_coverage.is_some_and(|target| self.coverage() >= target) {
+        if conditions
+            .target_coverage
+            .is_some_and(|target| self.coverage() >= target)
+        {
             return Some(StopReason::TargetCoverage);
         }
-        if conditions.stall_iterations.is_some_and(|limit| self.since_last_new() >= limit) {
+        if conditions
+            .stall_iterations
+            .is_some_and(|limit| self.since_last_new() >= limit)
+        {
             return Some(StopReason::Stalled);
         }
         None

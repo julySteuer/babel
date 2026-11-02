@@ -69,6 +69,24 @@ impl TokenVocabulary {
     }
 }
 
+fn files_below(dir: &std::path::Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    let mut pending = vec![dir.to_path_buf()];
+    while let Some(dir) = pending.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for path in entries.flatten().map(|entry| entry.path()) {
+            if path.is_dir() {
+                pending.push(path);
+            } else {
+                files.push(path);
+            }
+        }
+    }
+    files
+}
+
 pub fn build_token_vocabulary(grammar_paths: &[PathBuf]) -> TokenVocabulary {
     let out_dir = std::env::temp_dir().join(format!(
         "nautilus-antlr-tokens-{}-{}",
@@ -93,25 +111,23 @@ pub fn build_token_vocabulary(grammar_paths: &[PathBuf]) -> TokenVocabulary {
         .status();
 
     let mut type_to_rule = HashMap::new();
-    if let Ok(entries) = std::fs::read_dir(&out_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().and_then(|ext| ext.to_str()) != Some("tokens") {
-                continue;
-            }
-            let Ok(content) = std::fs::read_to_string(&path) else {
+    // antlr4 mirrors a relative grammar path inside the output directory, so the `.tokens` files can be nested.
+    for path in files_below(&out_dir) {
+        if path.extension().and_then(|ext| ext.to_str()) != Some("tokens") {
+            continue;
+        }
+        let Ok(content) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        for line in content.lines() {
+            let Some((name, number)) = line.rsplit_once('=') else {
                 continue;
             };
-            for line in content.lines() {
-                let Some((name, number)) = line.rsplit_once('=') else {
-                    continue;
-                };
-                if name.starts_with('\'') || name.starts_with("T__") {
-                    continue;
-                }
-                if let Ok(number) = number.trim().parse::<i64>() {
-                    type_to_rule.entry(number).or_insert_with(|| name.to_string());
-                }
+            if name.starts_with('\'') || name.starts_with("T__") {
+                continue;
+            }
+            if let Ok(number) = number.trim().parse::<i64>() {
+                type_to_rule.entry(number).or_insert_with(|| name.to_string());
             }
         }
     }
@@ -147,7 +163,9 @@ pub fn trace_visited_rules(
         .write_all(input.as_bytes())
         .expect("failed to write generated input to antlr4-parse");
 
-    let output = child.wait_with_output().expect("antlr4-parse did not run to completion");
+    let output = child
+        .wait_with_output()
+        .expect("antlr4-parse did not run to completion");
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 

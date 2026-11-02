@@ -38,7 +38,8 @@ use feedback::RuleCoverageFeedback;
 use stats::{FuzzStats, StopConditions, StopReason};
 use tui::Tui;
 
-const TREE_DEPTH: usize = 60;
+/// Nautilus' limit on the number of rule applications in one generated tree (not its depth).
+const DEFAULT_TREE_SIZE: usize = 60;
 
 #[derive(Serialize)]
 struct PerformanceReport {
@@ -60,7 +61,8 @@ options:
   --timeout <secs>        stop after this much wall-clock time
   --target-coverage <f>   stop once this fraction (0..1) of all rules is visited
   --stall <n>             stop after n consecutive inputs without a new rule
-  --mutations <n>         max mutated inputs tried per corpus entry (default 8)";
+  --mutations <n>         max mutated inputs tried per corpus entry (default 8)
+  --tree-size <n>         max rule applications in a generated tree (default 60)";
 
 fn parse_flag<T: std::str::FromStr>(name: &str, value: Option<String>) -> T {
     value.and_then(|v| v.parse().ok()).unwrap_or_else(|| {
@@ -73,6 +75,7 @@ fn main() {
     let mut use_tui = false;
     let mut stop = StopConditions::default();
     let mut mutations: usize = 8;
+    let mut tree_size: usize = DEFAULT_TREE_SIZE;
     let mut positional: Vec<String> = Vec::new();
     let mut raw_args = std::env::args().skip(1);
     while let Some(arg) = raw_args.next() {
@@ -83,6 +86,7 @@ fn main() {
             }
             "--target-coverage" => stop.target_coverage = Some(parse_flag(&arg, raw_args.next())),
             "--mutations" => mutations = parse_flag(&arg, raw_args.next()),
+            "--tree-size" => tree_size = parse_flag(&arg, raw_args.next()),
             "--stall" => stop.stall_iterations = Some(parse_flag(&arg, raw_args.next())),
             "--help" | "-h" => {
                 println!("{USAGE}");
@@ -133,7 +137,7 @@ fn main() {
     let lexer_rules = antlr::lexer_rule_names(&antlr_sources);
     let total_rules: HashSet<String> = parser_rules.into_iter().chain(lexer_rules).collect();
 
-    let context = NautilusContext::from_file(TREE_DEPTH, nautilus_grammar_path)
+    let context = NautilusContext::from_file(tree_size, nautilus_grammar_path)
         .expect("failed to load nautilus grammar");
     let mut generator = NautilusGenerator::new(&context);
 

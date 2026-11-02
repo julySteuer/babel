@@ -12,7 +12,9 @@ use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::symbols;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Axis, Block, Chart, Dataset, Gauge, GraphType, List, ListItem, Paragraph, Sparkline};
+use ratatui::widgets::{
+    Axis, Block, Chart, Dataset, Gauge, GraphType, List, ListItem, Paragraph, Sparkline,
+};
 
 use crate::stats::{FuzzStats, StopConditions};
 
@@ -30,14 +32,17 @@ impl Tui {
             let _ = restore();
             default_hook(info);
         }));
-        Ok(Self { terminal: Terminal::new(CrosstermBackend::new(stdout()))? })
+        Ok(Self {
+            terminal: Terminal::new(CrosstermBackend::new(stdout()))?,
+        })
     }
 
     /// Returns true if the user asked to quit (`q`, `Esc` or `Ctrl-C`).
     pub fn quit_requested() -> bool {
         while event::poll(Duration::ZERO).unwrap_or(false) {
             if let Ok(Event::Key(key)) = event::read() {
-                let ctrl_c = key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL);
+                let ctrl_c =
+                    key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL);
                 if ctrl_c || matches!(key.code, KeyCode::Char('q') | KeyCode::Esc) {
                     return true;
                 }
@@ -47,7 +52,9 @@ impl Tui {
     }
 
     pub fn draw(&mut self, stats: &FuzzStats, stop: &StopConditions, finished: Option<&str>) {
-        let _ = self.terminal.draw(|frame| render(frame, stats, stop, finished));
+        let _ = self
+            .terminal
+            .draw(|frame| render(frame, stats, stop, finished));
     }
 
     pub fn wait_for_key(&mut self) {
@@ -66,7 +73,12 @@ fn restore() -> std::io::Result<()> {
     execute!(stdout(), LeaveAlternateScreen)
 }
 
-fn render(frame: &mut ratatui::Frame, stats: &FuzzStats, stop: &StopConditions, finished: Option<&str>) {
+fn render(
+    frame: &mut ratatui::Frame,
+    stats: &FuzzStats,
+    stop: &StopConditions,
+    finished: Option<&str>,
+) {
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -81,7 +93,12 @@ fn render(frame: &mut ratatui::Frame, stats: &FuzzStats, stop: &StopConditions, 
         .block(Block::bordered().title(" rule coverage "))
         .gauge_style(Style::default().fg(Color::Green))
         .ratio(stats.coverage().clamp(0.0, 1.0))
-        .label(format!("{}/{} ({:.1}%)", stats.visited, stats.total_rules, stats.coverage() * 100.0));
+        .label(format!(
+            "{}/{} ({:.1}%)",
+            stats.visited,
+            stats.total_rules,
+            stats.coverage() * 100.0
+        ));
     frame.render_widget(gauge, rows[0]);
 
     let top = Layout::default()
@@ -91,9 +108,14 @@ fn render(frame: &mut ratatui::Frame, stats: &FuzzStats, stop: &StopConditions, 
     frame.render_widget(stats_panel(stats, stop, finished), top[0]);
 
     let rates: &[u64] = &stats.rate_history;
-    let visible = rates.len().saturating_sub(top[1].width.saturating_sub(2) as usize);
+    let visible = rates
+        .len()
+        .saturating_sub(top[1].width.saturating_sub(2) as usize);
     let sparkline = Sparkline::default()
-        .block(Block::bordered().title(format!(" executions/s (now {}) ", rates.last().copied().unwrap_or(0))))
+        .block(Block::bordered().title(format!(
+            " executions/s (now {}) ",
+            rates.last().copied().unwrap_or(0)
+        )))
         .style(Style::default().fg(Color::Cyan))
         .data(&rates[visible..]);
     frame.render_widget(sparkline, top[1]);
@@ -134,18 +156,40 @@ fn render(frame: &mut ratatui::Frame, stats: &FuzzStats, stop: &StopConditions, 
         .take(capacity)
         .map(|(iteration, rule)| ListItem::new(format!("#{iteration:<7} {rule}")))
         .collect();
-    frame.render_widget(List::new(items).block(Block::bordered().title(" newest rules ")), bottom[1]);
+    frame.render_widget(
+        List::new(items).block(Block::bordered().title(" newest rules ")),
+        bottom[1],
+    );
 
-    let hint = if finished.is_some() { "press any key to exit" } else { "q / Esc: stop fuzzing" };
-    frame.render_widget(Paragraph::new(hint).style(Style::default().fg(Color::DarkGray)), rows[3]);
+    let hint = if finished.is_some() {
+        "press any key to exit"
+    } else {
+        "q / Esc: stop fuzzing"
+    };
+    frame.render_widget(
+        Paragraph::new(hint).style(Style::default().fg(Color::DarkGray)),
+        rows[3],
+    );
 }
 
-fn stats_panel(stats: &FuzzStats, stop: &StopConditions, finished: Option<&str>) -> Paragraph<'static> {
+fn stats_panel(
+    stats: &FuzzStats,
+    stop: &StopConditions,
+    finished: Option<&str>,
+) -> Paragraph<'static> {
     let secs = stats.elapsed.as_secs();
     let limit = |value: Option<String>| value.map_or(String::new(), |v| format!(" / {v}"));
     let status = match finished {
-        Some(reason) => Span::styled(format!("finished: {reason}"), Style::default().fg(Color::Yellow)),
-        None => Span::styled("running", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+        Some(reason) => Span::styled(
+            format!("finished: {reason}"),
+            Style::default().fg(Color::Yellow),
+        ),
+        None => Span::styled(
+            "running",
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        ),
     };
     let lines = vec![
         Line::from(status),
