@@ -1,0 +1,57 @@
+# Fuzz an instrumented sqlite with LibAFL+Nautilus (babel-translated grammar) and
+# Grammarinator (original ANTLR grammar); compare cumulative edge coverage (out/*.csv).
+root    := justfile_directory()
+build   := root / 'build'
+out     := root / 'out'
+harness := build / 'harness'
+fuzzer  := root / 'target' / 'release' / 'nautilus-grammarinator-coverage'
+sqlite  := 'https://www.sqlite.org/2025/sqlite-amalgamation-3500400.zip'
+g4      := 'https://raw.githubusercontent.com/antlr/grammars-v4/master/sql/sqlite'
+depth   := '20'
+
+# sqlite amalgamation (sancov-instrumented) + harness
+harness:
+    mkdir -p {{build}}/sa {{build}}/g4
+    [ -f {{build}}/sa/sqlite3.c ] || { curl -sL {{sqlite}} -o {{build}}/sa.zip && unzip -qjo {{build}}/sa.zip -d {{build}}/sa; }
+    clang -O1 -w -fsanitize-coverage=trace-pc-guard -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION -c {{build}}/sa/sqlite3.c -o {{build}}/sqlite3.o
+    clang -O1 -I{{build}}/sa {{root}}/harness.c {{build}}/sqlite3.o -o {{harness}}
+
+grammar:
+    mkdir -p {{build}}/g4
+    [ -f {{build}}/g4/SQLiteParser.g4 ] || { curl -sL {{g4}}/SQLiteLexer.g4 -o {{build}}/g4/SQLiteLexer.g4; curl -sL {{g4}}/SQLiteParser.g4 -o {{build}}/g4/SQLiteParser.g4; }
+
+# LibAFL+Nautilus on the babel-translated grammar
+nautilus n: harness grammar
+    rm -rf {{out}}/nautilus-corpus; mkdir -p {{out}}
+    cargo build --release --manifest-path={{root}}/Cargo.toml
+    uv run babel-cli translate -i {{build}}/g4/SQLiteLexer.g4 {{build}}/g4/SQLiteParser.g4 -o {{build}}/nautilus.py -s parse
+    {{fuzzer}} {{build}}/nautilus.py {{harness}} {{out}}/nautilus.csv {{n}} {{out}}/nautilus-corpus
+
+# Grammarinator on the original ANTLR grammar; the harness map persists, so it prints cumulative edges
+grammarinator n: harness grammar
+    mkdir -p {{out}}
+    rm -rf {{build}}/gen {{build}}/tests {{build}}/gram.map
+    mkdir -p {{build}}/gen {{build}}/tests
+    uv run grammarinator-process {{build}}/g4/SQLiteLexer.g4 {{build}}/g4/SQLiteParser.g4 -o {{build}}/gen
+    g=$(basename {{build}}/gen/*Generator.py .py); uv run grammarinator-generate $g.$g -r parse -d {{depth}} -o {{build}}/tests/t_%d -n {{n}} -j 2 --encoding-errors replace --sys-path {{build}}/gen
+    echo step,edges > {{out}}/grammarinator.csv
+    for i in $(seq 0 $(({{n}}-1))); do echo "$((i+1)),$(COV_MAP={{build}}/gram.map {{harness}} {{build}}/tests/t_$i || true)" >> {{out}}/grammarinator.csv; done
+
+ca   := build / 'cov-analysis' / 'cov-analysis'
+llvm := '/opt/homebrew/opt/llvm/bin'
+gnu  := '/opt/homebrew/opt/findutils/libexec/gnubin:/opt/homebrew/opt/coreutils/libexec/gnubin'  # macOS: GNU find/timeout/...
+
+# llvm-cov build of the same harness for cov-analysis (needs `brew install llvm`)
+covbin: harness
+    [ -d {{build}}/cov-analysis ] || git clone -q --depth 1 https://github.com/AFLplusplus/cov-analysis {{build}}/cov-analysis
+    {{ca}} driver -o {{build}}/coverage_driver.c
+    PATH={{llvm}}:$PATH CC={{llvm}}/clang {{ca}} build sh -c '$CC $CFLAGS $CPPFLAGS -w -O1 -DCOV_BUILD -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION -I{{build}}/sa {{build}}/sa/sqlite3.c {{root}}/harness.c {{build}}/coverage_driver.c $LDFLAGS -o {{build}}/cov'
+
+# cov-analysis reports (HTML/JSON) for both corpora + a diff; run `just all n` first
+cov: covbin
+    mkdir -p {{build}}/covrun
+    cd {{build}}/covrun && PATH={{llvm}}:{{gnu}}:$PATH {{ca}} -d {{out}}/nautilus-corpus --layout flat -e '{{build}}/cov @@' -o {{out}}/cov-nautilus -t 2 --queue-timeout 5
+    cd {{build}}/covrun && PATH={{llvm}}:{{gnu}}:$PATH {{ca}} -d {{build}}/tests --layout flat -e '{{build}}/cov @@' -o {{out}}/cov-grammarinator -t 2 --queue-timeout 5
+    {{ca}} diff -o {{out}}/cov-diff {{out}}/cov-grammarinator/coverage.json {{out}}/cov-nautilus/coverage.json
+
+all n: (nautilus n) (grammarinator n) (nautilus n) (grammarinator n)
