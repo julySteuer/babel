@@ -1,0 +1,325 @@
+\documentclass[thesis]{plai}
+
+\usepackage{tabularx}
+
+\usepackage{lipsum}
+
+\usepackage{graphicx}
+\graphicspath{{images/}}
+
+
+
+% ---------------------------------------------- %
+\pretitle{}
+\posttitle{}
+\title{
+    \begin{center}
+        \bfseries\LARGE
+        Thesis Title
+    \end{center}
+}
+\preauthor{}
+\postauthor{}
+\author{
+    \begin{center}
+        \large
+        Author's name
+    \end{center}
+}
+\predate{}
+\postdate{}
+\date{\relax}
+
+% ---------------------------------------------- %
+\begin{document}
+
+\pagenumbering{roman}
+
+
+\begin{center}
+    \uppercase{Ludwig-Maximilians-Universität München}
+\end{center}
+
+\begin{center}
+    \uppercase{Chair of Programming Languages and Artificial Intelligence}
+\end{center}
+
+\vspace*{10mm}
+
+\begin{center}
+    \includegraphics[height=40mm]{sigillum.png}
+\end{center}
+
+\vspace*{10mm}
+
+{\let\newpage\relax\maketitle}
+
+\thispagestyle{empty}
+
+\begin{center}
+    \begin{large}
+        \begin{Large}
+            THESIS\_TYPE (Bachelor's Thesis / Master's Thesis, \ldots)\\
+        \end{Large}
+        in COURSE\_TYPE (Computer Science, Computer Science plus Mathematics, \ldots)\\
+    \end{large}
+\end{center}
+
+\vspace{1cm}
+
+\begin{center}
+    \begin{large}
+        Supervisor: Prof. Dr. Johannes Kinder\\
+    \end{large}
+\end{center}
+
+\begin{center}
+    \begin{large}
+        Advisor: Advisor's name\\
+    \end{large}
+\end{center}
+
+
+\begin{center}
+    \begin{large}
+        Submission Date: \today{}\\
+    \end{large}
+\end{center}
+
+\cleardoublepage
+
+\vspace*{0.55\textheight}
+\noindent
+\begin{center}
+    {\large\textbf{Declaration}}
+\end{center}
+
+\begin{flushleft}
+    I hereby confirm that this (Bachelor's Thesis / Master's Thesis, \ldots) is my own work, and that I have used no sources or aids other than those indicated. Passages that are taken either verbatim or in essence from other works are clearly marked as such and referenced accordingly.
+
+    \makeatother
+
+    \vspace{15mm}
+    \noindent
+
+    Munich, \today{}
+
+    Author's name
+\end{flushleft}
+
+\cleardoublepage
+
+\chapter*{Acknowledgments}
+
+I would like to express my heartfelt gratitude to everyone who has supported me throughout the journey of this thesis.
+Special thanks to my advisor, colleagues, and friends for their invaluable guidance and encouragement.
+
+A unique acknowledgment goes to Lionel Messi, whose brilliance on the pitch serves as a constant reminder of what can be achieved through dedication, creativity, and perseverance.
+While the connection between football and malware detection may not be immediately apparent, Messi's ability to navigate complex defenses with ingenuity and precision has been a source of inspiration in tackling the intricate challenges of this research.
+
+Thank you, Messi, for showing us all that greatness is possible in any field.
+
+
+\chapter*{Abstract}
+
+Lionel Messi, widely regarded as one of the greatest soccer players of all time, has transformed the modern game through his unparalleled skill, vision, and dedication.
+
+Born in Rosario, Argentina, Messi began his career at FC Barcelona, where he spent over two decades and achieved unprecedented success, including ten La Liga titles, seven Copa del Rey titles, and four UEFA Champions League trophies.
+Known for his agility, dribbling prowess, and goal-scoring ability, he has consistently set records, including the most goals scored for a single club and the most Ballon d'Or awards won.
+
+Messi's transition to Paris Saint-Germain in 2021 and subsequent contributions to the Argentine national team---culminating in Argentina's 2022 FIFA World Cup victory---underscored his enduring influence on both club and international soccer.
+Beyond his on-field achievements, Messi's humility and sportsmanship have earned him admiration worldwide, cementing his legacy not only as an exceptional athlete but as an iconic figure who has inspired generations of fans and aspiring players alike.
+
+
+\tableofcontents
+
+\cleardoublepage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+% ---------------------------------------------- %
+\chapter{Introduction}
+\label{chapter:introduction}
+
+The topic at hand is an important problem discussed several times in the recent literature~\cite{oakland23-xfl,spmag23-mlmalware,cryptosec11}. Industry requires a solution to this problem, as it is a major bottleneck in the development of new products~\cite{statemerging-patent}. As \citet{conformance-testing-arxiv} point out, it also is a major challenge in the field of conformance testing. 
+
+\lipsum[2-4]
+
+In particular, this thesis makes the following contributions:
+\begin{itemize}
+    \item We define the problem of abc as an instance of xyz~(\autoref{chapter:content1}).
+    \item We review the literature on xyz and show how corresponding solutions can be transferred to abc, following the example of def~(\autoref{chapter:content2}).
+    \item We demonstrate how to encode a specific example of abc to WizWoz, an implementation of def~(\autoref{chapter:content3}), and confirm that it effectively solves the problem~(\autoref{chapter:evaluation}).
+\end{itemize}
+
+
+% ---------------------------------------------- %
+\chapter{Background}
+\label{chapter:background}
+
+We begin by introducing the background on important tool~(\autoref{sec:tool}), before reviewing the state of the art in measuring important concept~(\autoref{sec:concept}).
+
+\section{Important Tool}
+\label{sec:tool}
+
+\lipsum[2-4]
+
+\section{Important Concept}
+\label{sec:concept}
+
+\lipsum[2-4]
+
+
+% ---------------------------------------------- %
+\chapter{Overview}
+\label{chapter:overview}
+
+Here we can make a reference to a figure.
+It is as simple as doing this, \autoref{fig:plai-mascot}.
+We can also reference the other figure, \autoref{fig:plai-unicorn}.
+As you can see, the figures are placed at the top and bottom of the page, respectively.
+
+\lipsum[1-5]
+
+\begin{figure}[t]
+    \begin{center}
+        \includegraphics[height=40mm]{ca-plai-bara.png}
+    \end{center}
+    \caption{Our mascot, the cutest capybara in the entire universe.}
+    \label{fig:plai-mascot}
+\end{figure}
+
+\begin{figure}[t]
+    \begin{center}
+        \includegraphics[height=40mm]{ca-plai-corn.png}
+    \end{center}
+    \caption{Our mascot riding a unicorn, because why not?}
+    \label{fig:plai-unicorn}
+\end{figure}
+
+
+% ---------------------------------------------- %
+\chapter{Main Contents}
+\label{chapter:content1}
+
+\lipsum[2-8]
+
+\begin{figure}[t]
+    \begin{lstlisting}[language=Python, gobble=4]
+    def foo():
+        return 42   # the answer to everything
+
+    def bar():
+        return f'The answer is: {foo()}'
+    \end{lstlisting}
+    \caption{A simple example of a program. Figure captions go below.}
+    \label{fig:example-program}
+\end{figure}
+
+\autoref{fig:example-program} shows a simple example of a program.
+It is easy to see that the program is correct, as it returns the correct result.
+
+% ---------------------------------------------- %
+\chapter{More Main Contents}
+\label{chapter:content2}
+
+\lipsum[2-3]
+
+
+% ---------------------------------------------- %
+\chapter{Remaining Main Contents}
+\label{chapter:content3}
+
+\lipsum[2-3]
+
+% ---------------------------------------------- %
+\chapter{Evaluation}
+\label{chapter:evaluation}
+
+\lipsum[2-4]
+
+\autoref{tab:results} shows the results of the evaluation.
+As can be seen, Method 1 outperforms Method 2.
+This is in line with the results of \citet{phdthesis-kinder}, who also found that Method 1 is superior to Method 2.
+All of this allows us to answer our proposed research question.
+
+\begin{table}[t]
+    \centering
+    \caption{Results of the evaluation. Table captions go above.}
+    \label{tab:results}
+    \begin{tabularx}{.7\linewidth}{Xrr}
+        \toprule
+        \textbf{Method} & \textbf{Precision} & \textbf{Recall} \\
+        \midrule
+        Method 1 & 0.42 & 0.23 \\
+        Method 2 & 0.23 & 0.42 \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\lipsum[2-4]
+
+
+% ---------------------------------------------- %
+\chapter{Related Work}
+\label{chapter:related-work}
+
+Here we discuss related work.
+During the development of your thesis, you will have to read a lot of papers and articles.
+Aim to understand the state of the art in your field and how your work fits into it.
+Not only you should summarize the papers you have read, but also critically evaluate them.
+Attempt to answer some of the following questions.
+
+\begin{itemize}
+    \item What are the strengths and weaknesses of the papers?
+    \item Which are their limitations?
+    \item How does your work compare to them?
+    \item Are there any open questions in the field?
+\end{itemize}
+
+\lipsum[4-5]
+
+
+% ---------------------------------------------- %
+\chapter{Conclusion}
+\label{chapter:conclusion}
+
+The end of the journey.
+Here we should summarize the main contributions of the thesis.
+It is important to highlight how your work contributes to the field.
+Suggest future research directions that could be valuable and interesting.
+This is what most readers will remember from your thesis, so be clear and concise.
+
+\lipsum[8]
+
+
+% ---------------------------------------------- %
+\bibliographystyle{plainnat}
+\bibliography{bibliography}
+
+% ---------------------------------------------- %
+\appendix
+
+\chapter{Detailed Results}
+
+If there is material that you want to include, but it does not fit into the thesis itself, it may belong into the appendix.
+Something like a detailed description of a specific algorithm, a long table with results from an experiment, or an interesting discussion that does not fit into the main narrative of your work.
+
+Appendices are structured like chapters, possibly including sections, subsections, tables, images etc.
+
+\chapter{Specific Example, Case Study etc.}
+
+\section{First Example}
+\lipsum[1]
+
+\section{Second Example}
+\lipsum[2]
+
+% ---------------------------------------------- %
+% Optionally lists of figures / tables, if there are many
+% \microtypesetup{protrusion=false}
+% \listoffigures{}
+% \listoftables{}
+% \microtypesetup{protrusion=true}
+
+\end{document}
