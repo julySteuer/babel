@@ -37,7 +37,7 @@ def test_plain_terminal_and_nonterminal_input_compiles_to_a_ctx_rule_call():
     ir = _single_rule_ir("Foo", BabelSymbol("a"), BabelNonterminal("BAR"))
 
     assert decode(ir, "Foo") == (
-        'ctx.rule("Foo", "a{BAR}")\nctx.rule("START", "{Foo}")\nctx.rule("EOF", "")'
+        'ctx.rule("Foo", "a{BAR}")\nctx.rule("BAR", "")\nctx.rule("START", "{Foo}")\nctx.rule("EOF", "")'
     )
 
 

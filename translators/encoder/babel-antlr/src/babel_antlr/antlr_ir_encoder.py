@@ -28,6 +28,12 @@ def _encode_rules(
     return [_encode_rule(rule) for rule in children]
 
 
+def _encode_rule_specs(
+    lexer_rules: list[ANTLRv4Parser.LexerRuleSpecContext],
+) -> list[tuple[str, AntlrProduction]]:
+    return [encode_lexer_rule(rule) for rule in lexer_rules]
+
+
 def _find_action_rules(
     productions: dict[str, AntlrProduction],
 ) -> list[tuple[str, ActedAntlrLexerBlock]]:
@@ -43,6 +49,8 @@ def encode_to_antlr_ir(
     grammar_spec_context: ANTLRv4Parser.GrammarSpecContext,
 ) -> AntlrIr:
     productions = _encode_rules(grammar_spec_context.rules())
+    for mode in grammar_spec_context.modeSpec():
+        productions.extend(_encode_rule_specs(mode.lexerRuleSpec()))
     ir = {key: value for key, value in productions}
     action_rules = _find_action_rules(ir)
     return AntlrIr(ir, action_rules)

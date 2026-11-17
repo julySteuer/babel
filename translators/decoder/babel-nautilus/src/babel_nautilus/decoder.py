@@ -6,10 +6,21 @@ from babel_nautilus.rule_decoder import decode_to_rules
 from babel_nautilus.ir_decoder import decode_ir
 
 
+def _join_surrogate_pairs(content: str) -> str:
+    """
+    ANTLR spells characters outside the BMP as UTF-16 surrogate pairs. Joins valid pairs into the code point they
+    stand for and drops lone surrogates, which have no UTF-8 encoding and so can never be part of a generated input.
+    """
+    joined = content.encode("utf-16-le", "surrogatepass").decode(
+        "utf-16-le", "surrogatepass"
+    )
+    return "".join(char for char in joined if not 0xD800 <= ord(char) <= 0xDFFF)
+
+
 def _python_string_literal_body(content: str) -> str:
     """Escapes content so that it reads back unchanged when the generated python grammar is executed."""
     escaped = []
-    for char in content:
+    for char in _join_surrogate_pairs(content):
         match char:
             case "\\":
                 escaped.append("\\\\")
@@ -23,10 +34,6 @@ def _python_string_literal_body(content: str) -> str:
                 escaped.append("\\t")
             case _ if ord(char) < 0x20 or ord(char) == 0x7F:
                 escaped.append(f"\\x{ord(char):02x}")
-            case _ if (
-                0xD800 <= ord(char) <= 0xDFFF
-            ):  # lone surrogates can't be encoded as utf-8
-                escaped.append(f"\\u{ord(char):04x}")
             case _:
                 escaped.append(char)
     return "".join(escaped)
@@ -55,7 +62,13 @@ def _generate_rules(rules: list[Rule]) -> list[str]:
 
 
 def decode(babel_ir: BabelIr, start_rule_name: str) -> str:
-    processed_ir = preprocess.add_start_rule(babel_ir, start_rule_name)
+    filled_ir = preprocess.add_missing_rules(babel_ir)
+    pruned_ir = preprocess.remove_unproductive_rules(filled_ir)
+    if start_rule_name not in pruned_ir.production_rules:
+        raise ValueError(
+            f"start symbol {start_rule_name!r} cannot derive any finite string"
+        )
+    processed_ir = preprocess.add_start_rule(pruned_ir, start_rule_name)
     added_eof_ir = preprocess.add_eof_rule(processed_ir)
     decoded = decode_ir(added_eof_ir)
     decoded_rules = decode_to_rules(decoded)

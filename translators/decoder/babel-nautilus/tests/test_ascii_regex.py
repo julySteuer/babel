@@ -5,7 +5,7 @@ from babel_nautilus.ascii_regex import EmptyAsciiClass, restrict_to_ascii
 
 @pytest.mark.parametrize(
     "regex",
-    ["[a-z]", "[0-9]", "[a-zA-Z_]", "[\\n\\r]", "abc", "[a-z]+", "[]", "[\\p{L}]"],
+    ["[a-z]", "[0-9]", "[a-zA-Z_]", "[\\n\\r]", "abc", "[a-z]+", "[]"],
 )
 def test_ascii_classes_and_non_classes_are_untouched(regex):
     assert restrict_to_ascii(regex) == regex

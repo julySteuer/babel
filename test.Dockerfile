@@ -17,7 +17,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         default-jre-headless curl ca-certificates unzip git just \
-        build-essential clang pkg-config libssl-dev \
+        build-essential clang llvm pkg-config libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Rust toolchain (for the LibAFL/Nautilus fuzzers)

@@ -1,4 +1,4 @@
-"""Evaluate nautilus-antlr-coverage-fuzzer's rule-coverage performance across the
+"""Evaluate nautilus-grammar-performance's ANTLR rule-coverage performance across the
 antlr/grammars-v4 corpus and report an overall and a per-grammar score."""
 
 from __future__ import annotations
@@ -17,10 +17,11 @@ from tqdm import tqdm
 
 GRAMMARS_V4_URL = "https://github.com/antlr/grammars-v4"
 REPO_ROOT = Path(__file__).resolve().parents[4]
-FUZZER_DIR = REPO_ROOT / "test" / "nautilus-antlr-coverage-fuzzer"
-FUZZER_BIN = FUZZER_DIR / "target" / "release" / "nautilus-antlr-coverage-fuzzer"
+FUZZER_DIR = REPO_ROOT / "test" / "nautilus-grammar-performance"
+FUZZER_BIN = FUZZER_DIR / "target" / "release" / "nautilus-grammar-performance"
 
 COMMENT_RE = re.compile(r"(?s)/\*.*?\*/|//[^\n]*")
+LITERAL_RE = re.compile(r"'(?:\\.|[^'\\\n])*'|\[(?:\\.|[^\]\\\n])*\]")
 PARSER_RULE_RE = re.compile(r"(?m)^\s*([a-z][A-Za-z0-9_]*)\s*:")
 
 
@@ -70,9 +71,25 @@ def discover_units(root: Path) -> list[GrammarUnit]:
     return units
 
 
+def _strip_braced_blocks(source: str) -> str:
+    """Removes `{...}` blocks (actions, @members, options): they hold target-language code, not rules."""
+    out: list[str] = []
+    depth = 0
+    for char in source:
+        if char == "{":
+            depth += 1
+        elif char == "}" and depth:
+            depth -= 1
+        elif not depth:
+            out.append(char)
+    return "".join(out)
+
+
 def first_parser_rule(unit: GrammarUnit) -> str | None:
     source = "\n".join(f.read_text(errors="ignore") for f in unit.files)
-    match = PARSER_RULE_RE.search(COMMENT_RE.sub("", source))
+    source = COMMENT_RE.sub("", source)
+    source = LITERAL_RE.sub("''", source)  # a quoted `{` must not open a block
+    match = PARSER_RULE_RE.search(_strip_braced_blocks(source))
     return match.group(1) if match else None
 
 
@@ -105,9 +122,12 @@ def run_fuzzer(nautilus_grammar: Path, unit: GrammarUnit, repetitions: int) -> d
     result = subprocess.run(
         [
             str(FUZZER_BIN),
-            str(nautilus_grammar),
+            "-n",
             str(repetitions),
-            *(str(f) for f in unit.files),
+            "--depth",
+            "200",
+            *(arg for f in unit.files for arg in ("--antlr", str(f))),
+            str(nautilus_grammar),
         ],
         capture_output=True,
         text=True,
@@ -118,7 +138,13 @@ def run_fuzzer(nautilus_grammar: Path, unit: GrammarUnit, repetitions: int) -> d
         raise RuntimeError(
             result.stderr.strip() or "fuzzer exited with a non-zero status"
         )
-    return json.loads(result.stdout.strip().splitlines()[-1])
+    raw = json.loads(result.stdout.strip().splitlines()[-1])
+    return {
+        "coverage": raw["antlr_coverage"],
+        "visited_rules": raw["antlr_rules_visited"],
+        "total_rules": raw["antlr_rules_total"],
+        "production_coverage": raw["production_coverage"],
+    }
 
 
 def evaluate_unit(
