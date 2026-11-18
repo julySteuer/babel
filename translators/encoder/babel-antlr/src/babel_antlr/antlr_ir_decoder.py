@@ -1,3 +1,4 @@
+import re
 from functools import reduce
 from typing import Callable
 
@@ -309,12 +310,73 @@ def _decode_parser_rules(
     }
 
 
-def decode_antlr_irs_to_babel_irs(antlr_irs: list[AntlrIr]) -> BabelIr:
+WHITESPACE_MODES = ("auto", "space", "none", "skipped")
+
+
+def _skips_character(
+    acted_productions: dict[str, AntlrProduction],
+    lexer_productions: dict,
+    character: str,
+) -> bool:
+    """Whether a skipped / hidden lexer rule can match exactly `character`, e.g. `WS: [ \\t\\r\\n]+ -> skip`."""
+    for production in acted_productions.values():
+        for block in production.production.opts:
+            atoms = block.atoms
+            while len(atoms) == 1:
+                inner = atoms[0]
+                if isinstance(inner, (AntlrPlus, AntlrStar, AntlrOptional)):
+                    atoms = [inner.atom]
+                elif isinstance(inner, AntlrBlock):
+                    atoms = inner.atoms
+                else:
+                    break
+            if len(atoms) != 1:
+                continue
+            try:
+                body = _char_class_body(atoms[0], lexer_productions)
+                if re.fullmatch(f"[{body}]", character):
+                    return True
+            except (NotImplementedError, re.error):
+                continue  # not a single character matcher
+    return False
+
+
+def _plain_separator(
+    whitespace: str,
+    acted_productions: dict[str, AntlrProduction],
+    lexer_productions: dict,
+) -> BabelAtom | None:
+    """The atom put between two parser elements for every mode but "skipped", None if there is none."""
+    if not acted_productions or whitespace in ("none", "skipped"):
+        return None
+    if whitespace == "space":
+        return BabelSymbol(" ")
+    if whitespace == "auto":
+        for character in ("\n", " "):
+            if _skips_character(acted_productions, lexer_productions, character):
+                return BabelSymbol(character)
+        return None
+    return None
+
+
+def decode_antlr_irs_to_babel_irs(
+    antlr_irs: list[AntlrIr], whitespace: str = "auto"
+) -> BabelIr:
     """Decodes grammars that belong together, e.g. a parser and its lexer in separate files, into one BabelIr.
 
     What a parser rule needs from the lexer (the `.` wildcard, the skipped tokens between elements and the
     tokens `~` ranges over) is taken from all the grammars, not just the one the rule is in.
     If several grammars define a rule of the same name, the last one wins.
+
+    `whitespace` decides what goes between two parser elements when the grammars skip some tokens
+    (`-> skip`, `-> channel(HIDDEN)`); without skipped tokens nothing is added:
+      - "auto" (default): a newline if some skipped rule can match one, else a space if one can match that, else
+        nothing. A newline ends tokens that run to the end of the line (`XFIELD: 'X:' ~[\\r\\n]*`), which a space
+        does not
+      - "space": always one space, so tokens never merge and no comment can swallow the next token
+      - "none": nothing, the elements are concatenated
+      - "skipped": any number of skipped tokens (whitespace, comments), which is how ANTLR lexes the input but
+        generates unseparated keywords and line comments without their newline
     """
     acted_productions: dict[str, AntlrProduction] = {}
     lexer_productions: dict[str, AntlrProduction] = {}
@@ -337,8 +399,10 @@ def decode_antlr_irs_to_babel_irs(antlr_irs: list[AntlrIr]) -> BabelIr:
         generated_rules[name] = production
         wildcard = BabelNonterminal(name)
 
-    separator = None
-    if acted_productions:
+    if whitespace not in WHITESPACE_MODES:
+        raise ValueError(f"whitespace must be one of {WHITESPACE_MODES}, got {whitespace!r}")
+    separator = _plain_separator(whitespace, acted_productions, lexer_productions)
+    if acted_productions and whitespace == "skipped":
         name, production = _generate_choice_rule(
             "ALL_ACTED_RULES",
             [BabelBlock([BabelNonterminal(rule)]) for rule in acted_productions],
@@ -359,8 +423,10 @@ def decode_antlr_irs_to_babel_irs(antlr_irs: list[AntlrIr]) -> BabelIr:
     return BabelIr(rules | generated_rules | token_complements.generated_rules)
 
 
-def decode_antlr_ir_to_babel_ir(antlr_ir: AntlrIr) -> BabelIr:
-    return decode_antlr_irs_to_babel_irs([antlr_ir])
+def decode_antlr_ir_to_babel_ir(
+    antlr_ir: AntlrIr, whitespace: str = "auto"
+) -> BabelIr:
+    return decode_antlr_irs_to_babel_irs([antlr_ir], whitespace)
 
 
 __all__ = ["decode_antlr_ir_to_babel_ir", "decode_antlr_irs_to_babel_irs"]

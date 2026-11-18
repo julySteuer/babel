@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use libafl::Error;
 use libafl::HasMetadata;
@@ -16,6 +16,12 @@ pub struct RuleCoverageFeedback<'a> {
     context: &'a NautilusContext,
     name: Cow<'static, str>,
     pub visited: HashSet<String>,
+    /// Number of executed inputs that visited each rule (the coverage histogram).
+    pub hit_counts: HashMap<String, usize>,
+    /// Executions seen so far (1-based step of the input being judged).
+    pub step: usize,
+    /// `(step, rule)` for every rule at the step it was first visited.
+    pub discoveries: Vec<(usize, String)>,
     /// Rules first seen since the caller last drained this with `mem::take`.
     pub new_rules: Vec<String>,
 }
@@ -26,6 +32,9 @@ impl<'a> RuleCoverageFeedback<'a> {
             context,
             name: Cow::Borrowed("rule_coverage"),
             visited: HashSet::new(),
+            hit_counts: HashMap::new(),
+            step: 0,
+            discoveries: Vec::new(),
             new_rules: Vec::new(),
         }
     }
@@ -51,9 +60,12 @@ impl<EM, S: HasMetadata> Feedback<EM, NautilusInput, (AntlrTraceObserver, ()), S
         _exit_kind: &ExitKind,
     ) -> Result<bool, Error> {
         let mut found_new = false;
+        self.step += 1;
         for rule in &observers.0.visited {
+            *self.hit_counts.entry(rule.clone()).or_default() += 1;
             if self.visited.insert(rule.clone()) {
                 self.new_rules.push(rule.clone());
+                self.discoveries.push((self.step, rule.clone()));
                 found_new = true;
             }
         }

@@ -26,8 +26,8 @@ def reset_name_generator():
     stateful_name_generator.counter.clear()
 
 
-def decode(source: str) -> dict[str, BabelProduction]:
-    return decode_antlr_ir_to_babel_ir(to_antlr_ir(source)).production_rules
+def decode(source: str, **options) -> dict[str, BabelProduction]:
+    return decode_antlr_ir_to_babel_ir(to_antlr_ir(source), **options).production_rules
 
 
 def prod(*alts: list) -> BabelProduction:
@@ -173,7 +173,7 @@ def test_parser_in_separate_file_sees_the_lexer_rules():
     lexer = to_antlr_ir(
         "lexer grammar L;\nX: 'x' ;\nY: 'y' ;\nZ: 'z' ;\nWS: ' ' -> skip ;\n"
     )
-    rules = decode_antlr_irs_to_babel_irs([parser, lexer]).production_rules
+    rules = decode_antlr_irs_to_babel_irs([parser, lexer], whitespace="skipped").production_rules
     skipped = BabelStar(nt("ALL_ACTED_RULES_0__GENERATED"))
     assert rules["r"] == prod(
         [nt("NOT_LEXER_RULES_0__GENERATED"), skipped, nt(ALL_LEXER)]
@@ -211,7 +211,7 @@ def test_no_all_lexer_rules_rule_without_lexer_rules():
 
 
 def test_acted_alternative_becomes_its_own_rule():
-    rules = decode("grammar T;\nWS: ' ' -> skip ;\n")
+    rules = decode("grammar T;\nWS: ' ' -> skip ;\n", whitespace="skipped")
     assert rules["WS_0__GENERATED"] == prod([BabelSymbol(" ")])
     assert rules[ALL_ACTED] == prod([nt("WS_0__GENERATED")])
 
@@ -227,9 +227,7 @@ def test_rule_consisting_only_of_acted_alternatives_is_kept():
 
 
 def test_all_acted_rules_lists_every_acted_alternative_as_an_option():
-    rules = decode(
-        "grammar T;\nA: 'a' -> skip | 'b' -> skip ;\nC: 'c' -> channel(HIDDEN) ;\n"
-    )
+    rules = decode("grammar T;\nA: 'a' -> skip | 'b' -> skip ;\nC: 'c' -> channel(HIDDEN) ;\n", whitespace="skipped")
     assert rules[ALL_ACTED] == prod(
         [nt("A_0__GENERATED")], [nt("A_1__GENERATED")], [nt("C_0__GENERATED")]
     )
@@ -246,9 +244,7 @@ def test_all_lexer_rules_inlines_only_the_regular_alternatives_of_mixed_rules():
 
 
 def test_acted_rules_are_tweened_between_parser_atoms():
-    rules = decode(
-        "grammar T;\nr: A B C ;\nA: 'a' ;\nB: 'b' ;\nC: 'c' ;\nWS: ' ' -> skip ;\n"
-    )
+    rules = decode("grammar T;\nr: A B C ;\nA: 'a' ;\nB: 'b' ;\nC: 'c' ;\nWS: ' ' -> skip ;\n", whitespace="skipped")
     skip = BabelStar(nt(ALL_ACTED))
     assert rules["r"] == prod([nt("A"), skip, nt("B"), skip, nt("C")])
 
@@ -259,9 +255,76 @@ def test_single_atom_parser_block_has_nothing_to_tween():
 
 
 def test_acted_rules_are_tweened_inside_nested_blocks():
-    rules = decode("grammar T;\nr: (A B)* ;\nA: 'a' ;\nB: 'b' ;\nWS: ' ' -> skip ;\n")
+    rules = decode("grammar T;\nr: (A B)* ;\nA: 'a' ;\nB: 'b' ;\nWS: ' ' -> skip ;\n", whitespace="skipped")
     inner = BabelBlockList([BabelBlock([nt("A"), BabelStar(nt(ALL_ACTED)), nt("B")])])
     assert rules["r"] == prod([BabelStar(inner)])
+
+
+def test_parser_elements_are_separated_by_a_space_when_tokens_are_skipped():
+    rules = decode(
+        "grammar T;\nr: A B C ;\nA: 'a' ;\nB: 'b' ;\nC: 'c' ;\nWS: ' ' -> skip ;\n"
+    )
+    space = BabelSymbol(" ")
+    assert rules["r"] == prod([nt("A"), space, nt("B"), space, nt("C")])
+    assert not any(name.startswith("ALL_ACTED_RULES") for name in rules)
+
+
+def test_parser_elements_are_concatenated_in_none_mode():
+    rules = decode(
+        "grammar T;\nr: A B ;\nA: 'a' ;\nB: 'b' ;\nWS: ' ' -> skip ;\n",
+        whitespace="none",
+    )
+    assert rules["r"] == prod([nt("A"), nt("B")])
+    assert not any(name.startswith("ALL_ACTED_RULES") for name in rules)
+
+
+def test_unknown_whitespace_mode_is_rejected():
+    with pytest.raises(ValueError):
+        decode("grammar T;\nr: A ;\nA: 'a' ;\n", whitespace="tabs")
+
+
+AB = "grammar T;\nr: A B ;\nA: 'a' ;\nB: 'b' ;\n"
+
+
+def _auto(skip_rules: str):
+    return decode(AB + skip_rules)["r"]
+
+
+def test_auto_uses_a_newline_when_a_skipped_rule_matches_one():
+    assert _auto("WS: [ \\t\\r\\n]+ -> skip ;\n") == prod([nt("A"), BabelSymbol("\n"), nt("B")])
+
+
+def test_auto_finds_the_newline_in_a_fragment_the_skipped_rule_uses():
+    rule = _auto("WS: Blank+ -> skip ;\nfragment Blank: [ \\n] ;\n")
+    assert rule == prod([nt("A"), BabelSymbol("\n"), nt("B")])
+
+
+def test_auto_finds_a_newline_matched_by_a_literal_or_alternatives():
+    for skip in ("NL: '\\n' -> skip ;\n", "WS: (' ' | '\\n') -> channel(HIDDEN) ;\n"):
+        assert _auto(skip) == prod([nt("A"), BabelSymbol("\n"), nt("B")])
+
+
+def test_auto_falls_back_to_a_space_when_no_skipped_rule_matches_a_newline():
+    assert _auto("WS: [ \\t]+ -> skip ;\n") == prod([nt("A"), BabelSymbol(" "), nt("B")])
+
+
+def test_auto_adds_nothing_when_only_comments_are_skipped():
+    assert _auto("COMMENT: '#' ~[\\n]* -> skip ;\n") == prod([nt("A"), nt("B")])
+
+
+def test_auto_adds_nothing_when_nothing_is_skipped():
+    assert _auto("") == prod([nt("A"), nt("B")])
+
+
+def test_auto_is_the_default_and_space_still_forces_a_space():
+    source = AB + "WS: [ \\t\\r\\n]+ -> skip ;\n"
+    assert decode(source)["r"] == decode(source, whitespace="auto")["r"]
+    assert decode(source, whitespace="space")["r"] == prod([nt("A"), BabelSymbol(" "), nt("B")])
+
+
+def test_no_space_is_added_when_nothing_is_skipped():
+    rules = decode("grammar T;\nr: A B ;\nA: 'a' ;\nB: 'b' ;\n")
+    assert rules["r"] == prod([nt("A"), nt("B")])
 
 
 def test_lexer_rules_are_not_tweened():

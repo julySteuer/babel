@@ -61,8 +61,10 @@ options:
   --timeout <secs>        stop after this much wall-clock time
   --target-coverage <f>   stop once this fraction (0..1) of all rules is visited
   --stall <n>             stop after n consecutive inputs without a new rule
-  --mutations <n>         max mutated inputs tried per corpus entry (default 8)
-  --tree-size <n>         max rule applications in a generated tree (default 60)";
+  --histogram <file>      write a CSV histogram (rule,count,fraction): per rule, the number of
+                          executed inputs that visited it; fraction = count / executed inputs
+  --discovery <file>      write a CSV (rule,step) with the execution step each rule was first visited
+  --mutations <n>         max mutated inputs tried per corpus entry (default 8)";
 
 fn parse_flag<T: std::str::FromStr>(name: &str, value: Option<String>) -> T {
     value.and_then(|v| v.parse().ok()).unwrap_or_else(|| {
@@ -75,7 +77,8 @@ fn main() {
     let mut use_tui = false;
     let mut stop = StopConditions::default();
     let mut mutations: usize = 8;
-    let mut tree_size: usize = DEFAULT_TREE_SIZE;
+    let mut histogram_path: Option<PathBuf> = None;
+    let mut discovery_path: Option<PathBuf> = None;
     let mut positional: Vec<String> = Vec::new();
     let mut raw_args = std::env::args().skip(1);
     while let Some(arg) = raw_args.next() {
@@ -85,6 +88,8 @@ fn main() {
                 stop.timeout = Some(Duration::from_secs_f64(parse_flag(&arg, raw_args.next())))
             }
             "--target-coverage" => stop.target_coverage = Some(parse_flag(&arg, raw_args.next())),
+            "--histogram" => histogram_path = Some(parse_flag(&arg, raw_args.next())),
+            "--discovery" => discovery_path = Some(parse_flag(&arg, raw_args.next())),
             "--mutations" => mutations = parse_flag(&arg, raw_args.next()),
             "--tree-size" => tree_size = parse_flag(&arg, raw_args.next()),
             "--stall" => stop.stall_iterations = Some(parse_flag(&arg, raw_args.next())),
@@ -250,6 +255,32 @@ fn main() {
         },
         elapsed_secs,
     };
+
+    if let Some(path) = histogram_path {
+        let all_rules: Vec<&String> = total_rules
+            .iter()
+            .chain(fuzzer.feedback().hit_counts.keys())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let mut csv = String::from("rule,count,fraction\n");
+        for rule in all_rules {
+            let count = fuzzer.feedback().hit_counts.get(rule).copied().unwrap_or(0);
+            let fraction = count as f64 / stats.iterations.max(1) as f64;
+            csv.push_str(&format!("{rule},{count},{fraction:.6}\n"));
+        }
+        std::fs::write(&path, csv)
+            .unwrap_or_else(|err| panic!("failed to write histogram {}: {err}", path.display()));
+    }
+
+    if let Some(path) = discovery_path {
+        let mut csv = String::from("rule,step\n");
+        for (step, rule) in &fuzzer.feedback().discoveries {
+            csv.push_str(&format!("{rule},{step}\n"));
+        }
+        std::fs::write(&path, csv)
+            .unwrap_or_else(|err| panic!("failed to write discovery {}: {err}", path.display()));
+    }
 
     println!(
         "{}",

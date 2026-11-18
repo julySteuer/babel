@@ -49,7 +49,7 @@ def nt(name: str) -> BabelNonterminal:
 
 
 def test_antlr_grammar_translates_to_babel_ir():
-    babel_ir = decode_antlr_ir_to_babel_ir(to_antlr_ir(GRAMMAR))
+    babel_ir = decode_antlr_ir_to_babel_ir(to_antlr_ir(GRAMMAR), whitespace="skipped")
 
     skip = BabelStar(nt("ALL_ACTED_RULES_0__GENERATED"))
     plus_minus = BabelBlockList(

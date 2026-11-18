@@ -1,0 +1,328 @@
+\documentclass[thesis]{plai}
+
+\usepackage{tabularx}
+
+\usepackage{lipsum}
+
+\usepackage[T1]{fontenc}
+\usepackage{listings}
+\lstset{upquote=true,basicstyle=\fontencoding{T1}\selectfont}
+
+\usepackage{graphicx}
+\graphicspath{{images/}}
+
+
+
+% ---------------------------------------------- %
+\pretitle{}
+\posttitle{}
+\title{
+    \begin{center}
+        \bfseries\LARGE
+        Babel, a Grammar Translation Tool for Fuzzing
+    \end{center}
+}
+\preauthor{}
+\postauthor{}
+\author{
+    \begin{center}
+        \large
+        Julian Henry Steuer
+    \end{center}
+}
+\predate{}
+\postdate{}
+\date{\relax}
+
+% ---------------------------------------------- %
+\begin{document}
+
+\pagenumbering{roman}
+
+
+\begin{center}
+    \uppercase{Ludwig-Maximilians-Universität München}
+\end{center}
+
+\begin{center}
+    \uppercase{Chair of Programming Languages and Artificial Intelligence}
+\end{center}
+
+\vspace*{10mm}
+
+\begin{center}
+    \includegraphics[height=40mm]{sigillum.png}
+\end{center}
+
+\vspace*{10mm}
+
+{\let\newpage\relax\maketitle}
+
+\thispagestyle{empty}
+
+\begin{center}
+    \begin{large}
+        \begin{Large}
+            Bachelor's Thesis\\
+        \end{Large}
+        Computer Science plus Computer Linguistics\\
+    \end{large}
+\end{center}
+
+\vspace{1cm}
+
+\begin{center}
+    \begin{large}
+        Supervisor: Prof. Dr. Johannes Kinder\\
+    \end{large}
+\end{center}
+
+\begin{center}
+    \begin{large}
+        Advisor: Sebastian Eckl\\
+    \end{large}
+\end{center}
+
+
+\begin{center}
+    \begin{large}
+        Submission Date: 27.01.2027\\
+    \end{large}
+\end{center}
+
+\cleardoublepage
+
+\vspace*{0.55\textheight}
+\noindent
+\begin{center}
+    {\large\textbf{Declaration}}
+\end{center}
+
+\begin{flushleft}
+    I hereby confirm that this Bachelor's Thesis is my own work, and that I have used no sources or aids other than those indicated. Passages that are taken either verbatim or in essence from other works are clearly marked as such and referenced accordingly.
+
+    \makeatother
+
+    \vspace{15mm}
+    \noindent
+
+    Munich, \today{}
+
+    Julian Steuer
+\end{flushleft}
+
+\cleardoublepage
+
+\chapter*{Acknowledgments}
+\chapter*{Abstract}
+Structure-aware fuzzers like Nautilus use their own grammar formats. These formats are often poorly supported, because they are useless outside of one specific fuzzer. Other formats are much better supported. One example is ANTLR. It has a large community and many well-maintained grammars in repositories like grammars-v4. It would be useful to use these grammars in tools with less common formats like Nautilus. This thesis presents Babel, a unified grammar translator for context-free fuzzing grammars. Babel translates ANTLR grammars to Nautilus in bulk. This way, Nautilus can benefit from the existing ANTLR grammars. Babel is also modular. Users can add their own adapters to translate to and from other grammar formats.
+To evaluate the feasibility and performance of Babel, I tested it on 957 grammars from the grammars-v4 repository. The evaluation checks the accuracy of the translation, how many grammars can be translated, and the performance of the generated Nautilus grammars compared to an ANTLR-native fuzzer.
+\tableofcontents
+
+\cleardoublepage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+% ---------------------------------------------- %
+\chapter{Introduction}
+\label{chapter:introduction}
+Fuzzing is a software testing technique that runs a program with a very large number of generated inputs to find crashes and vulnerabilities. Many programs expect highly structured input, such as a programming language or a file format. Fuzzers that change inputs at random usually break this structure, so the program rejects most inputs early. Grammar-based fuzzing, also called structure-aware fuzzing, solves this problem. Instead of changing bytes at random, these fuzzers generate inputs from a grammar that describes the structure. This increases the share of usable inputs and thus improves performance. Chapter~\ref{chapter:background} explains these concepts in detail.
+
+One well-known grammar fuzzer is Nautilus~\cite{aschermann19-nautilus}. It is a coverage-guided fuzzer that generates and mutates inputs based on a grammar. Like most grammar fuzzers, it defines grammars in its own format. This format is only used by Nautilus itself, so few ready-made grammars exist for it.
+
+In contrast, grammar formats from other fields are much better supported. A well-known example is ANTLR~\cite{antlr-website}, which is widely used for language recognition. It has a large community and many curated and maintained grammars in repositories like grammars-v4~\cite{grammars-v4}. Grammar formats that are used by only one or a few fuzzers get far less support, so they cannot benefit from this ecosystem.
+
+As a result, a fuzzing campaign usually cannot reuse existing grammars. Instead, it has to write and test new grammars in the format of its fuzzer. To solve this problem, this thesis introduces Babel, a grammar translation framework for fuzzing. It lets fuzzers with their own grammar formats use the well-supported grammars of common formats.
+
+\section{Approach}
+\label{section:approach}
+Babel is built as a modular multi-pass transpiler (Section~\ref{section:ir-multipass}). Front end adapters read a grammar format into a common intermediate representation (IR), and back end adapters write the IR into another format. Figure~\ref{ir_arch} shows this basic architecture.
+
+\begin{figure}[h]
+    \includegraphics[width=1.0\textwidth]{MultiPassCompiler.png}
+    \caption{The basic Babel architecture.}
+    \label{ir_arch}
+\end{figure}
+
+\section{Research Questions}
+\label{section:research-questions}
+This thesis evaluates Babel as a tool, using the translation from ANTLR to Nautilus as an example. The evaluation answers three questions:
+
+\begin{enumerate}
+    \item Can the translation from ANTLR to Nautilus accurately represent the original ANTLR grammar?
+    \item How does Nautilus perform against an ANTLR-native fuzzer, Grammarinator~\cite{hodovan18-grammarinator}, when fuzzing a real target?
+    \item How good are the seeds generated by Babel and Nautilus compared to the seeds generated by Grammarinator?
+\end{enumerate}
+
+\section{Contributions}
+\label{section:contributions}
+This thesis makes the following contributions:
+
+\begin{itemize}
+    \item Babel, a modular grammar translation framework for fuzzing, based on a multi-pass design with an IR.
+    \item A translator from ANTLR to Nautilus grammars, built on top of Babel.
+    \item An evaluation of this translator on a large corpus of ANTLR grammars. It covers translation accuracy and fuzzing performance compared to Grammarinator.
+\end{itemize}
+
+\section{Limitations}
+\label{section:limitations}
+Babel has limitations. It translates context-free grammars into other context-free grammars. Grammar formats that are more powerful than context-free grammars cannot be translated correctly, and information is lost. For this reason, not every ANTLR grammar can be translated. Some grammars rely on external code, for example to define lexer rules.
+
+\section{Structure of the Thesis}
+\label{section:structure}
+The rest of this thesis is organized as follows. Chapter~\ref{chapter:background} explains the background on grammar-based fuzzing, Nautilus, and ANTLR. Chapter~\ref{chapter:evaluation} presents the design of the evaluation and its results. Chapter~\ref{chapter:related-work} discusses related work. Chapter~\ref{chapter:conclusion} concludes the thesis and gives an outlook on future work.
+
+% ---------------------------------------------- %
+\chapter{Background}
+\label{chapter:background}
+\section{Fuzzing and Fuzzers}
+\label{section:fuzzing}
+% * Fuzzing is a way to test a program by executing it (or one part of it) repetatly with different inputs. the bahviour of the software under test is monitored and reported
+% * for meaningful results they are usually run for days / weeks 
+% * There are many kinds of fuzzers. The most important ones for this paper are coverage guided fuzzers and the difference of coverage guided to "blind" generational fuzzers. Also mention mutational fuzzers 
+% * show image of the fuzz loop 
+% * Introduce popular fuzzers and introduce what a Fuzzer is (fuzzing toolboxes like LibAfl and out of the box fussers like AFL++)
+Fuzzing is a software testing technique. A fuzzer repeatedly runs a program with different inputs, which are mostly random or generated, and monitors its behavior. It looks for crashes, invalid states, and security vulnerabilities. Inputs that trigger such behavior are called \emph{interesting}. For meaningful results, fuzzing campaigns often run for days or weeks without interruption. During this time, they test millions of inputs.
+
+Fuzzers differ in how they work. Three questions are important for this thesis: whether the fuzzer uses feedback from the program, how it creates new inputs, and whether it knows the structure of the input.
+
+\begin{description}
+    \item[Blackbox and greybox fuzzing.] Blackbox fuzzers receive no feedback from the program. They only observe whether the program crashes. Greybox fuzzers instrument the program to measure code coverage, for example edge coverage. They keep inputs that reach new coverage, because these inputs explore more of the program. This is called \emph{coverage-guided} fuzzing.
+    \item[Generational and mutational fuzzing.] Generational fuzzers create each input from scratch. Mutational fuzzers change existing inputs, for example by flipping bytes. Mutational fuzzers are often coverage-guided, since the feedback tells them which inputs are worth mutating. However, they do not have to be.
+    \item[Grammar-based and structure-aware fuzzing.] Grammar-based fuzzers know the structure of the input from a grammar. They generate or mutate inputs so that they follow this grammar. A grammar-based fuzzer can be blackbox or greybox, and generational or mutational.
+\end{description}
+
+These properties can be combined. Nautilus~\cite{aschermann19-nautilus}, for example, is a grammar-based, mutational, and coverage-guided fuzzer. Grammarinator~\cite{grammarinator-github} is a grammar-based, generational fuzzer that uses no feedback. This thesis compares both types, so the distinction is important.
+
+\section{Context Free Grammars}
+\label{section:cfg}
+A grammar describes which strings belong to a language. Context free grammars (CFGs) are the type of grammar most often used to describe the syntax of highly structured data, such as programming languages and file formats. Most grammar formats for fuzzing, including those of ANTLR and Nautilus, are based on context free grammars.
+
+In the Chomsky hierarchy, CFGs are type~2 grammars. They are the first level that can express nesting, for example matching opening and closing parentheses to any depth. Regular grammars (type~3), such as regular expressions, cannot do this.
+
+Formally, a context free grammar is a tuple $G = (N, \Sigma, P, S)$ with:
+\begin{itemize}
+    \item $N$, a finite set of \emph{non-terminals}. These symbols are replaced by other symbols.
+    \item $\Sigma$, a finite set of \emph{terminals}. These symbols appear in the final string and are not replaced.
+    \item $P$, a finite set of \emph{rules} (also called productions) of the form $A \rightarrow \alpha$. Here $A \in N$, and $\alpha$ is a sequence of terminals and non-terminals.
+    \item $S \in N$, the \emph{start symbol}.
+\end{itemize}
+
+A string is generated by starting with $S$ and repeatedly replacing a non-terminal with the right hand side of one of its rules, until only terminals remain. This sequence of steps is called a \emph{derivation}. Its structure can be written as a \emph{derivation tree} (or parse tree). As an example, the grammar
+\begin{align*}
+    S &\rightarrow \texttt{(}\, S \,\texttt{)} \mid S\,S \mid \varepsilon
+\end{align*}
+generates all strings of balanced parentheses, such as \texttt{(()())}. The rule for $S$ uses $S$ on its right side. This recursion is what allows arbitrary nesting.
+
+A CFG can be \emph{ambiguous}: some strings have more than one derivation tree. The grammar above is an example, since \texttt{()()()} can be derived in several ways.
+
+CFGs have limits. Some properties of real languages are not context-free, for example that a variable must be declared before it is used. Grammar formats therefore often add extra features on top of pure CFGs. Section~\ref{section:ebnf} describes common notations, and Chapter~\ref{chapter:babel} discusses which features cannot be translated.
+
+\section{BNF and EBNF}
+\label{section:ebnf}
+The Backus-Naur Form (BNF) and the Extended Backus-Naur Form (EBNF) are metalanguages for writing context-free grammars (Section~\ref{section:cfg}) as text. They are widely used to describe the syntax of file formats and programming languages. Many grammar formats, including the one of ANTLR, are based on them.
+
+\subsection{BNF}
+A BNF grammar consists of rules of the form \verb|<Name> ::= ...|. The concepts are the same as in Section~\ref{section:cfg}:
+\begin{itemize}
+    \item Non-terminals are written in angle brackets, for example \verb|<Number>|.
+    \item Terminals are written in quotes, for example \verb|"+"|.
+    \item The symbol \verb#|# separates alternatives, which are different right-hand sides for the same non-terminal.
+\end{itemize}
+
+Listing~\ref{lst:bnf} shows a small grammar for numbers that are added and subtracted.
+
+\begin{lstlisting}[caption={A grammar for addition and subtraction of numbers in BNF.}, label={lst:bnf}, basicstyle=\small\ttfamily, numbers=none, aboveskip=8pt, belowskip=4pt]
+<Expr>   ::= <Number> "+" <Expr> | <Number> "-" <Expr> | <Number>
+<Number> ::= <Digit> <Number> | <Digit>
+<Digit>  ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+\end{lstlisting}
+
+\subsection{EBNF}
+EBNF has the same structure as BNF, but adds shorthand notations. These make grammars shorter and easier to read. EBNF has the same expressive power as BNF: every EBNF grammar can be rewritten as a BNF grammar. EBNF is standardized in ISO/IEC~14977, but many slightly different dialects are in use. The most important additions are:
+\begin{itemize}
+    \item \textbf{Optional elements} in square brackets, for example \verb|[ B ]|.
+    \item \textbf{Repetition} in curly braces, for example \verb|{ B }|. This means that the content appears zero or more times, and no recursion is needed.
+    \item \textbf{Grouping} in round brackets, for example \verb#( B | C )#. This is a choice inside a rule, which BNF can only express with a helper rule.
+\end{itemize}
+
+Listing~\ref{lst:ebnf} shows the grammar from Listing~\ref{lst:bnf} in EBNF. It needs fewer rules, and the repetition and the choice between \verb|"+"| and \verb|"-"| are directly visible.
+
+\begin{lstlisting}[caption={The grammar from Listing~\ref{lst:bnf} in EBNF.}, label={lst:ebnf}, basicstyle=\small\ttfamily, numbers=none, aboveskip=8pt, belowskip=4pt]
+Expr   = Number, { ( "+" | "-" ), Number } ;
+Number = Digit, { Digit } ;
+Digit  = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+\end{lstlisting}
+
+\subsection{Converting EBNF to BNF}
+Because both notations are equally expressive, each EBNF shorthand can be rewritten with plain BNF rules. Table~\ref{tab:ebnf-to-bnf} shows how. Repetition and grouping need recursion or helper rules, which is why EBNF is the more compact and readable form. Converting in the opposite direction, from BNF to EBNF, would require recognizing such patterns in the rules first.
+
+\begin{table}[h]
+    \centering
+    \small
+    \begin{tabular}{@{}llll@{}}
+        \toprule
+        \textbf{Shorthand} & \textbf{EBNF} & \textbf{Equivalent BNF} & \textbf{Needs} \\
+        \midrule
+        Optional   & \verb|A = [ B ], C ;|
+                   & \verb#<A> ::= <B> <C> | <C>#
+                   & two alternatives \\
+        Repetition & \verb|A = { B } ;|
+                   & \begin{tabular}[t]{@{}l@{}}\verb#<A> ::= <B> <A> |# $\varepsilon$\end{tabular}
+                   & recursion \\
+        Grouping   & \verb#A = ( B | C ), D ;#
+                   & \begin{tabular}[t]{@{}l@{}}\verb|<A> ::= <G> <D>|\\ \verb#<G> ::= <B> | <C>#\end{tabular}
+                   & helper rule \\
+        \bottomrule
+    \end{tabular}
+    \caption{How the EBNF shorthands are rewritten with plain BNF rules. $\varepsilon$ is the empty string.}
+    \label{tab:ebnf-to-bnf}
+\end{table}
+
+\section{Intermediate Representations and Multi-Pass Translation}
+\label{section:ir-multipass}
+A compiler translates a program from one language into another. A \emph{transpiler}, also called a source-to-source compiler, does this between two languages of a similar level of abstraction. Babel is a transpiler for grammar formats. Both compilers and transpilers are usually built as \emph{multi-pass} translators. They do not translate their input in a single step. Instead, they split the work into several passes. Each pass has one clear task and passes its result to the next one. There are three kinds of passes:
+
+\begin{itemize}
+    \item \textbf{Front end:} reads the input and converts it into an intermediate representation (IR).
+    \item \textbf{Middle end:} analyzes and transforms the IR, for example by simplifying or normalizing it.
+    \item \textbf{Back end:} converts the IR into the target format.
+\end{itemize}
+
+The IR sits between the front end and the back end. It is a data structure that does not belong to the input format or to the output format, but keeps the meaning of the input. This separates two concerns. The front end only has to understand the input format, and the back end only has to write the output format. Neither has to know anything about the other.
+
+This separation makes translators reusable. Without an IR, translating between $N$ formats needs up to $N \times (N-1)$ separate translators, one for every ordered pair. With an IR, each format needs only one front end and one back end, so $2N$ components are enough. A new input format needs one new front end, and a new output format needs one new back end. Each new component works together with all existing ones.
+
+\subsection{Example: LLVM} 
+LLVM~\cite{lattner04-llvm} is one of the best-known frameworks built around an IR. Front ends for languages such as C and C++ (Clang), Rust, and Swift translate their input into the LLVM IR. Back ends then turn the IR into machine code for architectures such as x86, ARM, and WebAssembly. Any front end can be combined with any back end, so supporting a new language or a new architecture needs only one new component.
+
+The LLVM IR is a low-level, typed language. The optimization passes of LLVM work on this IR. They do not need to know the source language or the target architecture, so every language benefits from every optimization.
+
+\section{ANTLR}
+\chapter{Evaluation}
+\label{chapter:evaluation}
+
+\chapter{Related Work}
+\label{chapter:related-work}
+
+\chapter{Conclusion}
+\label{chapter:conclusion}
+
+
+% ---------------------------------------------- %
+\bibliographystyle{plainnat}
+\bibliography{bibliography}
+
+% ---------------------------------------------- %
+\appendix
+
+\chapter{Detailed Results}
+
+If there is material that you want to include, but it does not fit into the thesis itself, it may belong into the appendix.
+Something like a detailed description of a specific algorithm, a long table with results from an experiment, or an interesting discussion that does not fit into the main narrative of your work.
+
+Appendices are structured like chapters, possibly including sections, subsections, tables, images etc.
+
+\chapter{Specific Example, Case Study etc.}
+
+\end{document}

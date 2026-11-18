@@ -1,7 +1,10 @@
 just_dir := justfile_dir()
 
-test repetitions limit:
+import 'test-grammars/test-grammars.just'
+import 'test-grammars/grammarinator.just'
+
+test_grammars_v4 repetitions limit:
     uv run nautilus-antlr-test --limit {{limit}} --repetitions {{repetitions}}
 
-test_translate:
+test_translate_grammars_v4:
     uv run nautilus-antlr-test --translate-only
