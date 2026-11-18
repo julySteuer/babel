@@ -23,7 +23,11 @@ pub struct AntlrParseExecutor<'a> {
 }
 
 impl<'a> AntlrParseExecutor<'a> {
-    pub fn new(grammar_paths: &'a [PathBuf], start_rule: &'a str, context: &'a NautilusContext) -> Self {
+    pub fn new(
+        grammar_paths: &'a [PathBuf],
+        start_rule: &'a str,
+        context: &'a NautilusContext,
+    ) -> Self {
         Self {
             grammar_paths,
             start_rule,
@@ -46,8 +50,12 @@ impl<EM, S: HasExecutions, Z> Executor<EM, NautilusInput, S, Z> for AntlrParseEx
         *state.executions_mut() += 1;
         input.unparse(self.context, &mut self.bytes);
         let generated_input = String::from_utf8_lossy(&self.bytes);
-        self.observers.0.visited =
-            antlr::trace_visited_rules(self.grammar_paths, self.start_rule, &generated_input, &self.vocabulary);
+        self.observers.0.visited = antlr::trace_visited_rules(
+            self.grammar_paths,
+            self.start_rule,
+            &generated_input,
+            &self.vocabulary,
+        );
         Ok(ExitKind::Ok)
     }
 }

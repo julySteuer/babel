@@ -432,6 +432,12 @@ def main() -> None:
         help="reuse an existing grammars-v4 checkout instead of cloning",
     )
     parser.add_argument(
+        "--tree-size",
+        type=int,
+        default=None,
+        help="max rule applications in a generated tree (fuzzer default if unset)",
+    )
+    parser.add_argument(
         "--translate-only",
         action="store_true",
         help="only translate every grammar to a nautilus grammar (no fuzzing) "
