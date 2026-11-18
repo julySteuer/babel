@@ -1,5 +1,5 @@
 # Grammar quality indicator: generate N random Nautilus seeds from a babel-translated grammar
-# and report how many rules they cover. Usage: just perf test-grammars/http 1000
+# and report how many rules they cover. Usage: just perf test-grammars/http 1000 [depth] [candidates]
 root := justfile_directory()
 bin  := root / 'target' / 'release' / 'nautilus-grammar-performance'
 
@@ -7,13 +7,13 @@ build:
     cargo build --release --manifest-path={{root}}/Cargo.toml
 
 # grammar = dir with *.g4 and a startsymbol file (as in ../test-grammars/)
-perf grammar n='1000': build
+perf grammar n='1000' depth='60' candidates='0': build
     mkdir -p {{root}}/out
     uv run babel-cli translate -i `echo {{grammar}}/*.g4` -o {{root}}/out/grammar.py -s `cat {{grammar}}/startsymbol`
-    {{bin}} -n {{n}} --histogram {{root}}/out/histogram.csv --discovery {{root}}/out/discovery.csv {{root}}/out/grammar.py
+    {{bin}} -n {{n}} --depth {{depth}} --candidates {{candidates}} --histogram {{root}}/out/histogram.csv --discovery {{root}}/out/discovery.csv {{root}}/out/grammar.py
 
 # same, plus ANTLR rule coverage on the original .g4 files (slow: one antlr4-parse run per distinct seed)
-perf-antlr grammar n='100': build
+perf-antlr grammar n='100' depth='60' candidates='0': build
     mkdir -p {{root}}/out
     uv run babel-cli translate -i `echo {{grammar}}/*.g4` -o {{root}}/out/grammar.py -s `cat {{grammar}}/startsymbol`
-    {{bin}} -n {{n}} `for f in {{grammar}}/*.g4; do echo --antlr $f; done` --histogram {{root}}/out/histogram.csv --antlr-histogram {{root}}/out/antlr_histogram.csv --discovery {{root}}/out/discovery.csv {{root}}/out/grammar.py
+    {{bin}} -n {{n}} --depth {{depth}} --candidates {{candidates}} `for f in {{grammar}}/*.g4; do echo --antlr $f; done` --histogram {{root}}/out/histogram.csv --antlr-histogram {{root}}/out/antlr_histogram.csv --discovery {{root}}/out/discovery.csv {{root}}/out/grammar.py

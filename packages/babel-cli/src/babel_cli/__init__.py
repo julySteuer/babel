@@ -14,5 +14,13 @@ def main() -> None:
     parser.add_argument(
         "-s", "--start-symbol", help="Start Symbol name of the grammar", type=str
     )
+    parser.add_argument(
+        "--whitespace",
+        choices=["auto", "space", "none", "skipped"],
+        default="auto",
+        help="What goes between parser elements if the grammar skips tokens: "
+        "auto (default: a newline if a skipped rule matches one, else a space), always a space, "
+        "nothing, or any skipped tokens (whitespace, comments)",
+    )
     args = parser.parse_args()
     handle_cli(args)

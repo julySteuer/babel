@@ -8,7 +8,10 @@ def _generate_file_list_display_str(file_list: list[str]) -> str:
 
 
 def _handle_translate(
-    inp: list[str] | None, output: str | None, start_symbol: str | None
+    inp: list[str] | None,
+    output: str | None,
+    start_symbol: str | None,
+    whitespace: str = "auto",
 ) -> None:
     if inp is None or output is None or start_symbol is None:
         return
@@ -16,7 +19,7 @@ def _handle_translate(
     grammars = [Path(file_name).read_text() for file_name in inp]
 
     translated_nautilus = generate_nautilus(
-        grammars, start_symbol
+        grammars, start_symbol, whitespace
     )  # TODO: Make this modular. Should delegate to another function in babel-core
 
     print(
@@ -28,4 +31,6 @@ def _handle_translate(
 def handle_cli(args) -> None:
     match args.mode:
         case "translate":
-            _handle_translate(args.input, args.output, args.start_symbol)
+            _handle_translate(
+                args.input, args.output, args.start_symbol, args.whitespace
+            )

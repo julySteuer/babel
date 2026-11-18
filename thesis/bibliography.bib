@@ -1,58 +1,118 @@
-@article{spmag23-mlmalware,
-    author = {Lorenzo Cavallaro and Johannes Kinder and Feargus Pendlebury and Fabio Pierazzi},
-    title = {Are Machine Learning Models for Malware Detection Ready for Prime Time?},
-    journal = {IEEE Secur. Priv.},
-    volume = {21},
-    number = {2},
-    pages = {53--56},
-    year = {2023},
-    doi = {10.1109/MSEC.2023.3236543},
+@inproceedings{aschermann19-nautilus,
+    author = {Cornelius Aschermann and Tommaso Frassetto and Thorsten Holz and Patrick Jauernig and Ahmad-Reza Sadeghi and Daniel Teuchert},
+    title = {{NAUTILUS}: Fishing for Deep Bugs with Grammars},
+    booktitle = {Proc. Network and Distributed System Security Symp. (NDSS)},
+    publisher = {Internet Society},
+    year = {2019},
+    url = {https://www.ndss-symposium.org/ndss-paper/nautilus-fishing-for-deep-bugs-with-grammars/}
 }
 
-@inproceedings{oakland23-xfl,
-    author = {James Patrick-Evans and Moritz Dannehl and Johannes Kinder},
-    title = {{XFL}: Naming Functions in Binaries with Extreme Multi-label Learning},
-    booktitle = {Proc. IEEE Symp. Security and Privacy (S\&P)},
-    pages = {1677--1692},
+@misc{nautilus-github,
+    title = {Nautilus},
+    howpublished = {GitHub repository},
+    url = {https://github.com/nautilus-fuzz/nautilus},
+    note = {Accessed: 2026-11-17}
+}
+
+@misc{antlr-website,
+    key = {antlr-website},
+    year = {2026},
+    title = {{ANTLR} (ANother Tool for Language Recognition)},
+    howpublished = {Website},
+    url = {https://www.antlr.org/},
+    note = {Accessed: 2026-11-17}
+}
+
+@misc{grammars-v4,
+    key = {grammars-v4},
+    year = {2026},
+    title = {grammars-v4: Grammars written for {ANTLR} v4},
+    howpublished = {GitHub repository},
+    url = {https://github.com/antlr/grammars-v4},
+    note = {Accessed: 2026-11-17}
+}
+
+@inproceedings{hodovan18-grammarinator,
+    author = {Ren{\'a}ta Hodov{\'a}n and {\'A}kos Kiss and Tibor Gyim{\'o}thy},
+    title = {Grammarinator: A Grammar-Based Open Source Fuzzer},
+    booktitle = {Proc. 9th ACM SIGSOFT Int. Workshop on Automating TEST Case Design, Selection, and Evaluation (A-TEST)},
+    publisher = {ACM},
+    pages = {45--48},
+    year = {2018},
+    doi = {10.1145/3278186.3278193}
+}
+
+@inproceedings{hodovan25-grammarinator-libfuzzer,
+    author = {Ren{\'a}ta Hodov{\'a}n and {\'A}kos Kiss},
+    title = {Grammarinator Meets {LibFuzzer}: A Structure-Aware In-Process Approach},
+    booktitle = {Proc. 20th Int. Conf. Software Technologies (ICSOFT)},
+    publisher = {SCITEPRESS},
+    pages = {178--189},
+    year = {2025},
+    doi = {10.5220/0013571500003964}
+}
+
+@inproceedings{hodovan26-grammarinator-aflpp,
+    author = {Ren{\'a}ta Hodov{\'a}n and {\'A}kos Kiss},
+    title = {Grammar-Aware Coverage-Guided Fuzzing with Grammarinator and {AFL++}},
+    booktitle = {Proc. IEEE Int. Conf. Software Analysis, Evolution and Reengineering -- Companion (SANER-C)},
     publisher = {IEEE},
-    year = {2023},
-    doi = {10.1109/SP46215.2023.00096}
+    pages = {365--372},
+    year = {2026},
+    doi = {10.1109/SANER-C67878.2026.00055}
 }
 
-@techreport{conformance-testing-arxiv,
-    author = {Blake Loring and Johannes Kinder},
-    title = {Systematic Generation of Conformance Tests for JavaScript},
-    number = {arXiv:2108.07075},
-    year = {2021},
-    institution = {arXiv},
-    url = {https://arxiv.org/abs/2108.07075}
+@misc{grammarinator-github,
+    title = {Grammarinator},
+    howpublished = {GitHub repository},
+    url = {https://github.com/renatahodovan/grammarinator},
+    note = {Accessed: 2026-11-17}
 }
 
-@incollection{cryptosec11,
-    author = {Stefan Katzenbeisser and Johannes Kinder and Helmut Veith},
-    title = {Malware Detection},
-    editor = {Henk C. A. van Tilborg and Sushil Jajodia},
-    booktitle = {Encyclopedia of Cryptography and Security (2nd Ed.)},
-    pages = {752--755},
-    publisher = {Springer},
-    year = {2011}
+@inproceedings{fioraldi22-libafl,
+    author = {Andrea Fioraldi and Dominik Christian Maier and Dongjia Zhang and Davide Balzarotti},
+    title = {{LibAFL}: A Framework to Build Modular and Reusable Fuzzers},
+    booktitle = {Proc. ACM SIGSAC Conf. Computer and Communications Security (CCS)},
+    publisher = {ACM},
+    year = {2022},
+    url = {https://www.s3.eurecom.fr/docs/ccs22_fioraldi.pdf}
 }
 
-@phdthesis{phdthesis-kinder,
-    author = {Johannes Kinder},
-    title = {Static Analysis of x86 Executables},
-    year = {2010},
-    school = {Technische Universit{\"a}t Darmstadt}
+@misc{libafl-github,
+    title = {{LibAFL}},
+    howpublished = {GitHub repository},
+    url = {https://github.com/aflplusplus/libafl},
+    note = {Accessed: 2026-11-17}
 }
 
-@patent{statemerging-patent,
-  author   = {Volodymyr Kuznetsov and
-              Johannes Kinder and
-              Stefan Bucur and
-              George Candea},
-  title    = {Advantageous State Merging During Symbolic Analysis},
-  number   = {US 9,141,354 B2},
-  pubstate = {Issued},
-  month    = sep,
-  year     = {2015},
+@inproceedings{fioraldi20-aflpp,
+    author = {Andrea Fioraldi and Dominik Maier and Heiko Ei{\ss}feldt and Marc Heuse},
+    title = {{AFL++}: Combining Incremental Steps of Fuzzing Research},
+    booktitle = {Proc. 14th USENIX Workshop on Offensive Technologies (WOOT)},
+    publisher = {USENIX Association},
+    year = {2020},
+    url = {https://aflplus.plus/papers/}
+}
+
+@misc{aflpp-github,
+    title = {{AFL++}},
+    howpublished = {GitHub repository},
+    url = {https://github.com/aflplusplus/aflplusplus},
+    note = {Accessed: 2026-11-17}
+}
+
+@inproceedings{lattner04-llvm,
+    author = {Chris Lattner and Vikram Adve},
+    title = {{LLVM}: A Compilation Framework for Lifelong Program Analysis \& Transformation},
+    booktitle = {Proc. Int. Symp. Code Generation and Optimization (CGO)},
+    publisher = {IEEE},
+    year = {2004},
+    url = {https://llvm.org/pubs/2004-01-30-CGO-LLVM.pdf}
+}
+
+@misc{antlr2peg,
+    title = {{ANTLR2PEG}: A Tool to Convert {ANTLR} Grammars into {PEG} Grammars},
+    howpublished = {ResearchGate},
+    url = {https://www.researchgate.net/publication/417075526_ANTLR2PEG_A_tool_to_convert_ANTLR_grammars_into_PEG_grammars},
+    note = {Authors to be added. Accessed: 2026-11-17}
 }

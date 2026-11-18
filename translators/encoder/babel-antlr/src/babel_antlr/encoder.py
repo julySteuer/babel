@@ -21,12 +21,14 @@ def _to_antlr_ir(string: str) -> AntlrIr:
     # For ease hook onto every parser and lexer rule and parse them to a production. Same with fragment rules
 
 
-def encode_all(strings: list[str]) -> BabelIr:
-    return decode_antlr_irs_to_babel_irs([_to_antlr_ir(string) for string in strings])
+def encode_all(strings: list[str], whitespace: str = "auto") -> BabelIr:
+    return decode_antlr_irs_to_babel_irs(
+        [_to_antlr_ir(string) for string in strings], whitespace
+    )
 
 
-def encode(string: str) -> BabelIr:
-    return encode_all([string])
+def encode(string: str, whitespace: str = "auto") -> BabelIr:
+    return encode_all([string], whitespace)
 
 
 __all__ = ["encode", "encode_all"]
