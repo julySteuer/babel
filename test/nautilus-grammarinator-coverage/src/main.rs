@@ -1,10 +1,12 @@
 //! LibAFL+Nautilus fuzzer for the instrumented sqlite harness.
-//! usage: nautilus-grammarinator-coverage <nautilus-grammar.py> <harness> <out.csv> <executions> <corpus-dir>
-//! Writes `step,edges` (cumulative edge coverage after each execution) to <out.csv>.
-use std::io::Write;
-use std::os::unix::process::ExitStatusExt;
+//! usage: nautilus-grammarinator-coverage <nautilus-grammar.py> <harness> <out.csv> <limit> <corpus-dir>
+//! <limit> is a number of executions (`90000`), a duration (`30s`, `15m`, `12h`, `3d`) or `inf` (run until Ctrl-C).
+//! Writes `step,edges,seconds` (cumulative edge coverage; one row whenever it grows, plus a final row) to <out.csv>.
+//! The file is flushed every few seconds, so it is usable while the fuzzer runs and after an interrupt.
+use std::io::{BufWriter, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
 
 use libafl::corpus::{Corpus, InMemoryCorpus};
 use libafl::executors::{Executor, ExitKind, HasObservers};
@@ -17,103 +19,137 @@ use libafl::inputs::nautilus::NautilusInput;
 use libafl::mutators::{
     HavocScheduledMutator, NautilusRandomMutator, NautilusRecursionMutator, NautilusSpliceMutator,
 };
-use libafl::observers::StdMapObserver;
+use libafl::executors::forkserver::ForkserverExecutor;
+use libafl::executors::StdChildArgs;
+use libafl::inputs::nautilus::NautilusBytesConverter;
+use libafl::observers::{HitcountsMapObserver, StdMapObserver};
 use libafl::schedulers::QueueScheduler;
 use libafl::stages::StdMutationalStage;
 use libafl::stages::generation::GenStage;
 use libafl::state::{HasCorpus, HasExecutions, StdState};
 use libafl::{Error, HasMetadata};
 use libafl_bolts::rands::StdRand;
+use libafl_bolts::shmem::{ShMem, ShMemProvider};
+#[cfg(target_os = "macos")]
+use libafl_bolts::shmem::MmapShMemProvider;
+#[cfg(not(target_os = "macos"))]
+use libafl_bolts::shmem::UnixShMemProvider;
+use libafl_bolts::{StdTargetArgs, ToSlice, ToSliceMut};
 use libafl_bolts::tuples::{RefIndexable, tuple_list};
 use libafl_bolts::current_nanos;
 
-const MAP_SIZE: usize = 1 << 20; // must match harness.c
-static mut MAP: [u8; MAP_SIZE] = [0; MAP_SIZE];
+static STOP: AtomicBool = AtomicBool::new(false);
+#[cfg(target_os = "macos")]
+type ShProv = MmapShMemProvider;
+#[cfg(not(target_os = "macos"))]
+type ShProv = UnixShMemProvider;
+const MAP_SIZE: usize = 1 << 16; // AFL++ default; the afl-clang-fast harness maps ~46k guards into it
 
-type Obs = (StdMapObserver<'static, u8, false>, ());
-
-/// Runs the harness binary on the unparsed input and copies its edge map into `MAP`.
-struct HarnessExecutor<'a> {
+/// Wraps the LibAFL forkserver executor (AFL++-style, like afl-fuzz does for Grammarinator) and, after each run,
+/// tracks cumulative edge coverage from the shared map, saves corpus entries and writes the CSV.
+struct Counting<'a, E> {
     ctx: &'a NautilusContext,
-    harness: PathBuf,
-    dir: PathBuf,
-    obs: Obs,
+    inner: E,
+    map: *const u8,
     bytes: Vec<u8>,
     seen: Vec<bool>,
     edges: usize,
-    log: Vec<String>,
+    csv: BufWriter<std::fs::File>,
+    start: Instant,
+    last_flush: Instant,
     corpus: PathBuf,
 }
 
-impl<EM, S: HasExecutions, Z> Executor<EM, NautilusInput, S, Z> for HarnessExecutor<'_> {
-    fn run_target(&mut self, _: &mut Z, state: &mut S, _: &mut EM, input: &NautilusInput) -> Result<ExitKind, Error> {
-        *state.executions_mut() += 1;
-        input.unparse(self.ctx, &mut self.bytes);
-        let (sql, map) = (self.dir.join("input.sql"), self.dir.join("edges.map"));
-        std::fs::write(&sql, &self.bytes)?;
-        let _ = std::fs::remove_file(&map); // fresh map per execution
-        let status = Command::new(&self.harness)
-            .arg(&sql)
-            .env("COV_MAP", &map)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()?;
-        let cov = std::fs::read(&map).unwrap_or_default();
-        let dst = unsafe { std::slice::from_raw_parts_mut(&raw mut MAP as *mut u8, MAP_SIZE) };
-        dst.fill(0);
-        let n = cov.len().min(MAP_SIZE);
-        dst[..n].copy_from_slice(&cov[..n]);
+impl<EM, S: HasExecutions, Z, E: Executor<EM, NautilusInput, S, Z>> Executor<EM, NautilusInput, S, Z> for Counting<'_, E> {
+    fn run_target(&mut self, z: &mut Z, state: &mut S, mgr: &mut EM, input: &NautilusInput) -> Result<ExitKind, Error> {
+        let kind = self.inner.run_target(z, state, mgr, input)?; // forkserver run; counts the execution
+        let map = unsafe { std::slice::from_raw_parts(self.map, MAP_SIZE) };
         let before = self.edges;
-        for (i, _) in dst.iter().enumerate().filter(|(_, b)| **b != 0) {
+        for (i, _) in map.iter().enumerate().filter(|(_, b)| **b != 0) {
             if !std::mem::replace(&mut self.seen[i], true) {
                 self.edges += 1;
             }
         }
+        let execs = *state.executions();
         if self.edges > before {
-            std::fs::write(self.corpus.join(self.log.len().to_string()), &self.bytes)?; // corpus for cov-analysis
+            self.bytes.clear();
+            input.unparse(self.ctx, &mut self.bytes);
+            std::fs::write(self.corpus.join((execs - 1).to_string()), &self.bytes)?; // corpus for cov-analysis
+            writeln!(self.csv, "{},{},{:.1}", execs, self.edges, self.start.elapsed().as_secs_f64())?;
         }
-        self.log.push(format!("{},{}", self.log.len() + 1, self.edges));
-        Ok(if status.signal().is_some() { ExitKind::Crash } else { ExitKind::Ok })
+        if self.last_flush.elapsed() > Duration::from_secs(5) {
+            self.csv.flush()?;
+            self.last_flush = Instant::now();
+        }
+        Ok(kind)
     }
 }
 
-impl HasObservers for HarnessExecutor<'_> {
-    type Observers = Obs;
-    fn observers(&self) -> RefIndexable<&Obs, Obs> {
-        RefIndexable::from(&self.obs)
+impl<E: HasObservers> HasObservers for Counting<'_, E> {
+    type Observers = E::Observers;
+    fn observers(&self) -> RefIndexable<&Self::Observers, Self::Observers> {
+        self.inner.observers()
     }
-    fn observers_mut(&mut self) -> RefIndexable<&mut Obs, Obs> {
-        RefIndexable::from(&mut self.obs)
+    fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers> {
+        self.inner.observers_mut()
     }
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let [grammar, harness, out, n, corpus] = args.as_slice() else {
-        eprintln!("usage: nautilus-grammarinator-coverage <nautilus-grammar.py> <harness> <out.csv> <executions> <corpus-dir>");
+    let [grammar, harness, out, limit, corpus] = args.as_slice() else {
+        eprintln!("usage: nautilus-grammarinator-coverage <nautilus-grammar.py> <harness> <out.csv> <executions|30s|15m|12h|3d|inf> <corpus-dir>");
         std::process::exit(1);
     };
-    let n: usize = n.parse().expect("executions must be a number");
+    let (max_execs, max_time) = parse_limit(limit);
+    ctrlc::set_handler(|| STOP.store(true, Ordering::SeqCst)).expect("failed to install Ctrl-C handler");
 
     let context = NautilusContext::from_file(60, grammar).expect("failed to load nautilus grammar");
     let mut generator = NautilusGenerator::new(&context);
 
     std::fs::create_dir_all(corpus).unwrap();
-    let observer = unsafe { StdMapObserver::from_mut_ptr("edges", &raw mut MAP as *mut u8, MAP_SIZE) };
+    let mut shmem_provider = ShProv::new().unwrap();
+    let mut shmem = shmem_provider.new_shmem(MAP_SIZE).unwrap();
+    unsafe {
+        shmem.write_to_env("__AFL_SHM_ID").unwrap(); // SysV id on Linux (what AFL++'s runtime reads there); LibAFL insists on it
+        // macOS: AFL++ uses shm_open, and mmap shmems are identified by an open file descriptor, which AFL++'s runtime
+        // attaches to via __AFL_SHM_FD. Pass an inheritable duplicate above the forkserver pipes (198/199).
+        #[cfg(target_os = "macos")]
+        {
+            let fd: i32 = shmem.id().to_string().parse().expect("mmap shmem id is an fd");
+            let dup = libc::fcntl(fd, libc::F_DUPFD, 200);
+            assert!(dup >= 200, "could not duplicate the shmem fd");
+            std::env::set_var("__AFL_SHM_FD", dup.to_string());
+        }
+    }
+    let map_ptr = ToSlice::to_slice(&shmem).as_ptr();
+    let observer = HitcountsMapObserver::new(unsafe { StdMapObserver::new("edges", ToSliceMut::to_slice_mut(&mut shmem)) });
     let mut feedback = feedback_or!(MaxMapFeedback::new(&observer), NautilusFeedback::new(&context));
     let mut objective = ConstFeedback::from(false);
 
     let dir = std::env::temp_dir().join(format!("nautilus-sqlite-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    let mut executor = HarnessExecutor {
+    let forkserver = ForkserverExecutor::builder()
+        .program(harness)
+        .coverage_map_size(MAP_SIZE)
+        .timeout(Duration::from_secs(2))
+        .arg_input_file_std()
+        .build(tuple_list!(observer))
+        .expect("failed to start the forkserver (is <harness> built with afl-clang-fast? see `just harness-afl`)");
+    let mut executor = Counting {
         ctx: &context,
-        harness: PathBuf::from(harness),
-        dir: dir.clone(),
-        obs: tuple_list!(observer),
+        inner: forkserver,
+        map: map_ptr,
         bytes: Vec::new(),
         seen: vec![false; MAP_SIZE],
         edges: 0,
-        log: Vec::new(),
+        csv: {
+            let mut w = BufWriter::new(std::fs::File::create(out).unwrap());
+            writeln!(w, "step,edges,seconds").unwrap();
+            w
+        },
+        start: Instant::now(),
+        last_flush: Instant::now(),
         corpus: PathBuf::from(corpus),
     };
 
@@ -127,7 +163,12 @@ fn main() {
     .unwrap();
     state.add_metadata(NautilusChunksMetadata::new(dir.join("chunks").display().to_string()));
 
-    let mut fuzzer = StdFuzzer::new(QueueScheduler::new(), feedback, objective);
+    let mut fuzzer = StdFuzzer::builder()
+        .scheduler(QueueScheduler::new())
+        .feedback(feedback)
+        .objective(objective)
+        .target_bytes_converter(NautilusBytesConverter::new(&context))
+        .build();
     let mut mgr = libafl::events::NopEventManager::new();
     let mutator = HavocScheduledMutator::new(tuple_list!(
         NautilusRandomMutator::new(&context),
@@ -142,7 +183,11 @@ fn main() {
         StdMutationalStage::with_max_iterations(mutator, std::num::NonZeroUsize::new(8).unwrap()),
     );
 
-    while (*state.executions() as usize) < n {
+    let start = Instant::now();
+    while !STOP.load(Ordering::SeqCst)
+        && (*state.executions() as usize) < max_execs
+        && start.elapsed() < max_time
+    {
         if state.corpus().count() == 0 {
             let input = generator.generate(&mut state).unwrap();
             fuzzer.evaluate_input(&mut state, &mut executor, &mut mgr, &input).unwrap();
@@ -151,10 +196,23 @@ fn main() {
         }
     }
 
-    let mut f = std::fs::File::create(out).unwrap();
-    writeln!(f, "step,edges").unwrap();
-    for line in executor.log.iter().take(n) {
-        writeln!(f, "{line}").unwrap();
-    }
+    // final row so the curve extends to the end of the run
+    writeln!(executor.csv, "{},{},{:.1}", state.executions(), executor.edges, executor.start.elapsed().as_secs_f64()).unwrap();
+    executor.csv.flush().unwrap();
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `90000` -> executions, `30s|15m|12h|3d` -> duration, `inf` -> unbounded.
+fn parse_limit(s: &str) -> (usize, Duration) {
+    if s == "inf" {
+        return (usize::MAX, Duration::MAX);
+    }
+    let (num, mult) = match s.chars().last() {
+        Some('s') => (&s[..s.len() - 1], 1),
+        Some('m') => (&s[..s.len() - 1], 60),
+        Some('h') => (&s[..s.len() - 1], 3600),
+        Some('d') => (&s[..s.len() - 1], 86400),
+        _ => return (s.parse().expect("limit must be a number, <n>s|m|h|d or inf"), Duration::MAX),
+    };
+    (usize::MAX, Duration::from_secs(num.parse::<u64>().expect("bad duration") * mult))
 }

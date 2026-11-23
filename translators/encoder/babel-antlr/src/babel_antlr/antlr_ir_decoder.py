@@ -229,7 +229,7 @@ def _decode_atom(atom: AntlrAtom, scope: _Scope) -> BabelAtom:
         case AntlrBlockList():
             return _decode_block_list(atom, scope)
         case AntlrBlock():
-            return _decode_block(atom, scope)
+            return BabelBlockList([_decode_block(atom, scope)])
         case _:
             raise NotImplementedError(f"Cannot decode {type(atom).__name__}")
 
@@ -341,6 +341,82 @@ def _skips_character(
     return False
 
 
+def _lexer_regex(atom: AntlrAtom, productions: dict, seen: frozenset = frozenset()) -> str:
+    """A regular expression for what a lexer atom matches. Raises NotImplementedError for what it cannot express
+    (recursive rules, numeric ranges, ...)."""
+    match atom:
+        case AntlrSymbol(terminal):
+            return re.escape(terminal)
+        case AntlrCharRange(beginning, end):
+            return f"[{_escape_char_class_char(beginning)}-{_escape_char_class_char(end)}]"
+        case AntlrRawRegex(raw):
+            return f"(?:{raw})"
+        case AntlrLexerWildcard():
+            return "[\\s\\S]"
+        case AntlrNot():
+            body = "".join(
+                _char_class_body(element, productions) for element in _negated_elements(atom)
+            )
+            return f"[^{body}]"
+        case AntlrNonterminal(name) if name in productions and name not in seen:
+            return _lexer_regex(productions[name].production, productions, seen | {name})
+        case AntlrOptional(inner):
+            return f"(?:{_lexer_regex(inner, productions, seen)})?"
+        case AntlrStar(inner):
+            return f"(?:{_lexer_regex(inner, productions, seen)})*"
+        case AntlrPlus(inner):
+            return f"(?:{_lexer_regex(inner, productions, seen)})+"
+        case AntlrBlockList(opts):
+            return "(?:" + "|".join(_lexer_regex(opt, productions, seen) for opt in opts) + ")"
+        case AntlrBlock(atoms):
+            return "".join(_lexer_regex(a, productions, seen) for a in atoms)
+        case _:
+            raise NotImplementedError(type(atom).__name__)
+
+
+def _referenced_names(atom: AntlrAtom) -> set[str]:
+    match atom:
+        case AntlrNonterminal(name):
+            return {name}
+        case AntlrOptional(inner) | AntlrStar(inner) | AntlrPlus(inner):
+            return _referenced_names(inner)
+        case AntlrBlockList(opts):
+            return set().union(*(_referenced_names(opt) for opt in opts))
+        case AntlrBlock(atoms):
+            return set().union(*(_referenced_names(a) for a in atoms))
+        case AntlrNot(inner):
+            return _referenced_names(inner)
+        case _:
+            return set()
+
+
+def _token_can_match(lexer_productions: dict, character: str) -> bool:
+    """Whether a lexer rule that is not skipped can match just `character` (or a CRLF), so that the character
+    is a token of its own and not skipped. Anything that cannot be analysed counts as a match.
+
+    Only rules no other lexer rule refers to are looked at: the IR does not say which rules are fragments, and
+    a fragment matters through the tokens that use it."""
+    referenced = set().union(
+        *(
+            _referenced_names(p.production) - {name}
+            for name, p in lexer_productions.items()
+        )
+    )
+    for name, production in lexer_productions.items():
+        if name in referenced:
+            continue
+        for block in production.production.opts:
+            if isinstance(block, ActedAntlrLexerBlock):
+                continue
+            try:
+                pattern = _lexer_regex(block, lexer_productions)
+                if any(re.fullmatch(pattern, text) for text in (character, "\r" + character)):
+                    return True
+            except (NotImplementedError, re.error, RecursionError):
+                return True
+    return False
+
+
 def _plain_separator(
     whitespace: str,
     acted_productions: dict[str, AntlrProduction],
@@ -352,9 +428,14 @@ def _plain_separator(
     if whitespace == "space":
         return BabelSymbol(" ")
     if whitespace == "auto":
-        for character in ("\n", " "):
-            if _skips_character(acted_productions, lexer_productions, character):
-                return BabelSymbol(character)
+        # a newline ends tokens that run to the end of the line, but only if it really is skipped:
+        # `EOL: '\\n'` before `WS: [ \\n] -> skip` or `Text: ~[<]+` make it a token (or part of one)
+        if _skips_character(
+            acted_productions, lexer_productions, "\n"
+        ) and not _token_can_match(lexer_productions, "\n"):
+            return BabelSymbol("\n")
+        if _skips_character(acted_productions, lexer_productions, " "):
+            return BabelSymbol(" ")
         return None
     return None
 

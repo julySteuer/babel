@@ -13,7 +13,9 @@
 #include <sqlite3.h>
 
 #define MAP_SIZE (1 << 20)
-#ifndef COV_BUILD  // sancov build only; the llvm-cov build uses cov-analysis's driver main
+// Three builds: default (own sancov callbacks + COV_MAP, used by Nautilus), -DCOV_BUILD (llvm-cov, cov-analysis
+// driver main) and -DAFL_BUILD (afl-clang-fast supplies coverage; plain file-reading main for afl-fuzz).
+#if !defined(COV_BUILD) && !defined(AFL_BUILD)
 static uint8_t *map;
 
 void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
@@ -52,7 +54,20 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   return 0;
 }
 
-#ifndef COV_BUILD
+#ifdef AFL_BUILD
+int main(int argc, char **argv) {
+  FILE *f = argc > 1 ? fopen(argv[1], "rb") : NULL;
+  if (!f) return 2;
+  static uint8_t buf[1 << 20];
+  size_t n = fread(buf, 1, sizeof buf, f);
+  fclose(f);
+  chdir("/");
+  alarm(2);  // runaway queries
+  sqlite3_soft_heap_limit64(64 << 20);
+  LLVMFuzzerTestOneInput(buf, n);
+  return 0;
+}
+#elif !defined(COV_BUILD)
 static void report(int sig) {
   size_t edges = 0;
   for (size_t i = 0; i < MAP_SIZE; i++) edges += map[i] != 0;

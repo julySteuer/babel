@@ -8,3 +8,6 @@
 benchmark-out
 test/out
 thesis
+test/nautilus-grammarinator-coverage/build
+test/nautilus-grammarinator-coverage/out
+test/nautilus-grammarinator-coverage/out-docker

@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 libafl = { version = "0.16", default-features = false, features = ["std", "nautilus_py"] }
 libafl_bolts = "0.16"
+ctrlc = "3"
+libc = "0.2"

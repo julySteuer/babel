@@ -58,9 +58,8 @@ class BabelRawRegex(BabelTerminal):
     raw: str
 
 
-# This should propably not be an atom. Tis from earliere TODO: Remove
 @dataclass
-class BabelBlock(BabelAtom):  # block1 | block2 | block3
+class BabelBlock:  # a sequence of atoms; only valid as an option of a BabelBlockList
     atoms: list[BabelAtom]
 
 

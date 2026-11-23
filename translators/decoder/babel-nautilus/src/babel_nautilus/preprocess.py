@@ -39,7 +39,7 @@ def add_eof_rule(old_ir: BabelIr) -> BabelIr:
     return ir_copy
 
 
-def _referenced_nonterminals(atom: BabelAtom) -> set[str]:
+def _referenced_nonterminals(atom: BabelAtom | BabelBlock) -> set[str]:
     match atom:
         case BabelNonterminal(nonterminal=name):
             return {name}
@@ -69,7 +69,7 @@ def add_missing_rules(old_ir: BabelIr) -> BabelIr:
     return ir_copy
 
 
-def _is_productive(atom: BabelAtom, productive: set[str]) -> bool:
+def _is_productive(atom: BabelAtom | BabelBlock, productive: set[str]) -> bool:
     match atom:
         case BabelNonterminal(nonterminal=name):
             return name in productive
@@ -85,6 +85,15 @@ def _is_productive(atom: BabelAtom, productive: set[str]) -> bool:
             return True  # terminals
 
 
+def _empty_group() -> BabelBlockList:
+    return BabelBlockList([BabelBlock([])])
+
+
+def _prune_block(block: BabelBlock, productive: set[str]) -> BabelBlock:
+    pruned = [_prune(child, productive) for child in block.atoms]
+    return BabelBlock([child for child in pruned if child is not None])
+
+
 def _prune(atom: BabelAtom, productive: set[str]) -> BabelAtom | None:
     """Rebuilds `atom` without the parts that cannot terminate. None means "matches only the empty string"."""
     match atom:
@@ -93,18 +102,15 @@ def _prune(atom: BabelAtom, productive: set[str]) -> BabelAtom | None:
         ):
             return None
         case BabelOptional(atom=inner):
-            return BabelOptional(_prune(inner, productive) or BabelBlock([]))
+            return BabelOptional(_prune(inner, productive) or _empty_group())
         case BabelStar(atom=inner):
-            return BabelStar(_prune(inner, productive) or BabelBlock([]))
+            return BabelStar(_prune(inner, productive) or _empty_group())
         case BabelPlus(atom=inner):
-            return BabelPlus(_prune(inner, productive) or BabelBlock([]))
-        case BabelBlock(atoms=children):
-            pruned = [_prune(child, productive) for child in children]
-            return BabelBlock([child for child in pruned if child is not None])
+            return BabelPlus(_prune(inner, productive) or _empty_group())
         case BabelBlockList(opts=children):
             return BabelBlockList(
                 [
-                    _prune(child, productive)  # type: ignore[misc]
+                    _prune_block(child, productive)
                     for child in children
                     if _is_productive(child, productive)
                 ]
