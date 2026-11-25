@@ -1,41 +1,103 @@
 # Fuzz an instrumented sqlite with LibAFL+Nautilus (babel-translated grammar) and
-# Grammarinator (original ANTLR grammar); compare cumulative edge coverage (out/*.csv).
+# Grammarinator greybox/AFL++ (original ANTLR grammar); compare cumulative edge coverage (out/*.csv).
 root    := justfile_directory()
 build   := root / 'build'
 out     := root / 'out'
 harness := build / 'harness'
 fuzzer  := root / 'target' / 'release' / 'nautilus-grammarinator-coverage'
+jobs    := env('JOBS', '4')  # parallel compile jobs for AFL++ (lower on small machines / VMs)
 sqlite  := 'https://www.sqlite.org/2025/sqlite-amalgamation-3500400.zip'
 g4      := 'https://raw.githubusercontent.com/antlr/grammars-v4/master/sql/sqlite'
-depth   := '20'
 
 # sqlite amalgamation (sancov-instrumented) + harness
 harness:
     mkdir -p {{build}}/sa {{build}}/g4
     [ -f {{build}}/sa/sqlite3.c ] || { curl -sL {{sqlite}} -o {{build}}/sa.zip && unzip -qjo {{build}}/sa.zip -d {{build}}/sa; }
     clang -O1 -w -fsanitize-coverage=trace-pc-guard -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION -c {{build}}/sa/sqlite3.c -o {{build}}/sqlite3.o
-    clang -O1 -I{{build}}/sa {{root}}/harness.c {{build}}/sqlite3.o -o {{harness}}
+    clang -O1 -I{{build}}/sa {{root}}/harness.c {{build}}/sqlite3.o -lm -o {{harness}}
 
 grammar:
     mkdir -p {{build}}/g4
     [ -f {{build}}/g4/SQLiteParser.g4 ] || { curl -sL {{g4}}/SQLiteLexer.g4 -o {{build}}/g4/SQLiteLexer.g4; curl -sL {{g4}}/SQLiteParser.g4 -o {{build}}/g4/SQLiteParser.g4; }
 
-# LibAFL+Nautilus on the babel-translated grammar
-nautilus n: harness grammar
-    rm -rf {{out}}/nautilus-corpus; mkdir -p {{out}}
+# Build everything the fuzzers need (no fuzzing)
+build: harness harness-afl grafl nautilus-build
+
+nautilus-build: grammar
     cargo build --release --manifest-path={{root}}/Cargo.toml
     uv run babel-cli translate -i {{build}}/g4/SQLiteLexer.g4 {{build}}/g4/SQLiteParser.g4 -o {{build}}/nautilus.py -s parse
-    {{fuzzer}} {{build}}/nautilus.py {{harness}} {{out}}/nautilus.csv {{n}} {{out}}/nautilus-corpus
 
-# Grammarinator on the original ANTLR grammar; the harness map persists, so it prints cumulative edges
-grammarinator n: harness grammar
+# LibAFL+Nautilus (AFL++-style forkserver, same afl-clang-fast harness as Grammarinator) on the babel-translated grammar. limit: executions (`90000`), time (`30m`, `12h`, `3d`) or `inf` (until Ctrl-C).
+# out/nautilus.csv is written while running (step,edges,seconds).
+nautilus limit: harness-afl nautilus-build (nautilus-run limit)
+
+nautilus-run limit:
+    rm -rf {{out}}/nautilus-corpus; mkdir -p {{out}}
+    {{fuzzer}} {{build}}/nautilus.py {{build}}/harness-afl {{out}}/nautilus.csv {{limit}} {{out}}/nautilus-corpus
+
+# --- Grammarinator, greybox: C++ backend as an AFL++ custom mutator (coverage-guided tree mutation) ---
+afl     := env('AFL_DIR', build / 'aflpp')  # set AFL_DIR to use an existing AFL++ checkout (e.g. the aflplusplus docker image)
+cxx     := build / 'cxx-build'
+dylib   := cxx / 'lib' / 'libgrafl-sqlite' + if os() == 'macos' { '.dylib' } else { '.so' }
+afl_out := out / 'grammarinator-afl'
+# Deviations from Grammarinator's defaults (unlimited depth/tokens): AFL++ refuses inputs > 1 MB, so the tokens are capped (seeds + mutator);
+# the seed generator additionally needs -d 20 (it segfaults on unlimited depth). The AFL++ mutator itself runs with default depth.
+tokens  := '1500'
+
+# AFL++ (afl-fuzz, afl-clang-fast, afl-plot), built from source into build/aflpp
+aflpp:
+    [ -x {{afl}}/afl-fuzz ] || { git clone -q --depth 1 https://github.com/AFLplusplus/AFLplusplus {{afl}} && PATH={{llvm}}$PATH AFL_CC={{cc}} make -C {{afl}} -j{{jobs}} source-only NO_PYTHON=1 NO_NYX=1; }
+
+# Grammarinator's C++ backend (same release as the python package): generator/decoder tools + libgrafl-sqlite (the AFL++ mutator).
+# Needs cmake and conan (`uv tool install conan`).
+grafl: grammar aflpp
+    [ -d {{build}}/gr-src ] || git clone -q --depth 1 --branch 26.1 https://github.com/renatahodovan/grammarinator {{build}}/gr-src
+    [ -f ~/.conan2/profiles/default ] || conan profile detect
+    mkdir -p {{build}}/genpp
+    uv run grammarinator-process {{build}}/g4/SQLiteLexer.g4 {{build}}/g4/SQLiteParser.g4 --language hpp -o {{build}}/genpp
+    cd {{build}}/gr-src/grammarinator-cxx && python3 dev/build.py --builddir {{cxx}} --generator SQLiteGenerator --includedir {{build}}/genpp --afl-includedir {{afl}}/include --serializer grammarinator::runtime::SimpleSpaceSerializer --grafl --decode --generate
+
+# the same sqlite + harness, instrumented by afl-clang-fast instead of the sancov callbacks in harness.c
+harness-afl: harness aflpp
+    AFL_PATH={{afl}} AFL_CC={{cc}} AFL_CXX={{cc}}++ {{afl}}/afl-clang-fast -O1 -w -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION -DAFL_BUILD -I{{build}}/sa {{root}}/harness.c {{build}}/sa/sqlite3.c -lm -o {{build}}/harness-afl
+
+# Grammarinator + AFL++. limit: seconds (`600`), time (`30m`, `12h`, `3d`) or `inf` (until Ctrl-C; the report steps then
+# still run if you interrupt, otherwise run `just grammarinator-report`). Seeds come from the C++ blackbox generator
+# (as trees); AFL++ then mutates them guided by edge coverage. Outputs: out/grammarinator-afl (AFL++ dir, plot_data),
+# out/grammarinator-afl-plot (afl-plot graphs), out/grammarinator.csv (step=execs, edges, seconds), build/tests (decoded queue for `cov`)
+grammarinator limit='60': harness-afl grafl (grammarinator-run limit) grammarinator-report
+
+grammarinator-run limit:
     mkdir -p {{out}}
-    rm -rf {{build}}/gen {{build}}/tests {{build}}/gram.map
-    mkdir -p {{build}}/gen {{build}}/tests
-    uv run grammarinator-process {{build}}/g4/SQLiteLexer.g4 {{build}}/g4/SQLiteParser.g4 -o {{build}}/gen
-    g=$(basename {{build}}/gen/*Generator.py .py); uv run grammarinator-generate $g.$g -r parse -d {{depth}} -o {{build}}/tests/t_%d -n {{n}} -j 2 --encoding-errors replace --sys-path {{build}}/gen
-    echo step,edges > {{out}}/grammarinator.csv
-    for i in $(seq 0 $(({{n}}-1))); do echo "$((i+1)),$(COV_MAP={{build}}/gram.map {{harness}} {{build}}/tests/t_$i || true)" >> {{out}}/grammarinator.csv; done
+    rm -rf {{build}}/seeds {{build}}/seeds-trees {{afl_out}} {{afl_out}}-plot {{build}}/tests
+    mkdir -p {{build}}/seeds {{build}}/tests
+    {{cxx}}/bin/grammarinator-generate-sqlite -d 20 --max-tokens {{tokens}} -n 50 -o {{build}}/seeds/%d.sql --population {{build}}/seeds-trees --keep-trees
+    l={{limit}}; case $l in inf) v="";; *s) v="-V ${l%s}";; *m) v="-V $((${l%m}*60))";; *h) v="-V $((${l%h}*3600))";; *d) v="-V $((${l%d}*86400))";; *) v="-V $l";; esac; \
+      AFL_SKIP_CPUFREQ=1 AFL_NO_AFFINITY=1 AFL_NO_UI=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_CUSTOM_MUTATOR_ONLY=1 AFL_CUSTOM_MUTATOR_LIBRARY={{dylib}} GRAFL_MAX_TOKENS={{tokens}} \
+      {{afl}}/afl-fuzz -i {{build}}/seeds-trees -o {{afl_out}} $v -t 2000 -- {{build}}/harness-afl @@ || true
+
+# CSV, decoded queue (for `cov`) and afl-plot graphs from an existing out/grammarinator-afl
+grammarinator-report:
+    mkdir -p {{build}}/tests {{out}}
+    awk -F', ' 'BEGIN{print "step,edges,seconds"} !/^#/{print $12 "," $13 "," $1}' {{afl_out}}/default/plot_data > {{out}}/grammarinator.csv
+    {{cxx}}/bin/grammarinator-decode-sqlite {{afl_out}}/default/queue/* -o {{build}}/tests
+    PATH={{gnu}}{{afl}}:$PATH {{afl}}/afl-plot {{afl_out}}/default {{afl_out}}-plot
+
+# Both fuzzers in parallel (until Ctrl-C by default, or give e.g. 12h), then the report. Ctrl-C stops both cleanly.
+forever limit='inf': harness harness-afl grafl nautilus-build
+    #!/usr/bin/env bash
+    set -m   # job control: background jobs keep SIGINT enabled and get their own process groups
+    just nautilus-run {{limit}} &
+    just grammarinator-run {{limit}} &
+    trap 'kill -INT %1 %2 2>/dev/null' INT TERM
+    while kill -0 %1 2>/dev/null || kill -0 %2 2>/dev/null; do wait 2>/dev/null; done
+    trap - INT TERM
+    just grammarinator-report
+    just plot
+
+# overlay of out/nautilus.csv and out/grammarinator.csv (edges vs executions) -> out/edges.png and out/edges-time.png (needs gnuplot)
+plot:
+    gnuplot -e "nautilus='{{out}}/nautilus.csv'; grammarinator='{{out}}/grammarinator.csv'; output='{{out}}/edges.png'; output_time='{{out}}/edges-time.png'" {{root}}/plot.gp
 
 ca   := build / 'cov-analysis' / 'cov-analysis'
 
@@ -51,7 +113,7 @@ cc   := if llvm_bin == '' { 'clang' } else { llvm_bin / 'clang' }
 covbin: harness
     [ -d {{build}}/cov-analysis ] || git clone -q --depth 1 https://github.com/AFLplusplus/cov-analysis {{build}}/cov-analysis
     {{ca}} driver -o {{build}}/coverage_driver.c
-    PATH={{llvm}}$PATH CC={{cc}} {{ca}} build sh -c '$CC $CFLAGS $CPPFLAGS -w -O1 -DCOV_BUILD -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION -I{{build}}/sa {{build}}/sa/sqlite3.c {{root}}/harness.c {{build}}/coverage_driver.c $LDFLAGS -o {{build}}/cov'
+    PATH={{llvm}}$PATH CC={{cc}} {{ca}} build sh -c '$CC $CFLAGS $CPPFLAGS -w -O1 -DCOV_BUILD -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION -I{{build}}/sa {{build}}/sa/sqlite3.c {{root}}/harness.c {{build}}/coverage_driver.c $LDFLAGS -lm -o {{build}}/cov'
 
 # cov-analysis reports (HTML/JSON) for both corpora + a diff; run `just all n` first
 cov: covbin
@@ -60,4 +122,4 @@ cov: covbin
     cd {{build}}/covrun && PATH={{llvm}}{{gnu}}$PATH {{ca}} -d {{build}}/tests --layout flat -e '{{build}}/cov @@' -o {{out}}/cov-grammarinator -t 2 --queue-timeout 5
     {{ca}} diff -o {{out}}/cov-diff {{out}}/cov-grammarinator/coverage.json {{out}}/cov-nautilus/coverage.json
 
-all n: (nautilus n) (grammarinator n) (nautilus n) (grammarinator n)
+all n secs='60': (nautilus n) (grammarinator secs) (nautilus n) (grammarinator secs)

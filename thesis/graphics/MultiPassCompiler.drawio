@@ -1,0 +1,85 @@
+<mxfile host="65bd71144e">
+    <diagram id="ePrIm8njtGpUOtTjWPkz" name="Page-1">
+        <mxGraphModel dx="1636" dy="722" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="dLJMeGGomResdeYwptpP-14" edge="1" parent="1" source="dLJMeGGomResdeYwptpP-1" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="dLJMeGGomResdeYwptpP-4">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="ANTLR Adapter" vertex="1">
+                    <mxGeometry height="60" width="120" x="200" y="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-15" edge="1" parent="1" source="dLJMeGGomResdeYwptpP-2" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="dLJMeGGomResdeYwptpP-4">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="..." vertex="1">
+                    <mxGeometry height="60" width="120" x="200" y="380" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-16" edge="1" parent="1" source="dLJMeGGomResdeYwptpP-3" style="edgeStyle=none;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="dLJMeGGomResdeYwptpP-4">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Other Grammar Format Adapter" vertex="1">
+                    <mxGeometry height="60" width="120" x="200" y="290" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-20" edge="1" parent="1" source="dLJMeGGomResdeYwptpP-4" style="edgeStyle=none;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="dLJMeGGomResdeYwptpP-11">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-21" edge="1" parent="1" source="dLJMeGGomResdeYwptpP-4" style="edgeStyle=none;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="dLJMeGGomResdeYwptpP-13">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-22" edge="1" parent="1" source="dLJMeGGomResdeYwptpP-4" style="edgeStyle=none;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="dLJMeGGomResdeYwptpP-12">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;roundedPerimeter=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Babel IR" vertex="1">
+                    <mxGeometry height="60" width="120" x="360" y="290" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-17" edge="1" parent="1" source="dLJMeGGomResdeYwptpP-5" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="dLJMeGGomResdeYwptpP-1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="ANTLR" vertex="1">
+                    <mxGeometry height="60" width="120" x="40" y="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-19" edge="1" parent="1" source="dLJMeGGomResdeYwptpP-6" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="dLJMeGGomResdeYwptpP-2">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="..." vertex="1">
+                    <mxGeometry height="60" width="120" x="40" y="380" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-18" edge="1" parent="1" source="dLJMeGGomResdeYwptpP-7" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="dLJMeGGomResdeYwptpP-3">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-7" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Other Grammar Fromat&amp;nbsp;" vertex="1">
+                    <mxGeometry height="60" width="120" x="40" y="290" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-8" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Nautilus" vertex="1">
+                    <mxGeometry height="60" width="120" x="680" y="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-9" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="..." vertex="1">
+                    <mxGeometry height="60" width="120" x="680" y="380" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-10" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Other Grammar Format" vertex="1">
+                    <mxGeometry height="60" width="120" x="680" y="290" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-23" edge="1" parent="1" source="dLJMeGGomResdeYwptpP-11" style="edgeStyle=none;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="dLJMeGGomResdeYwptpP-8">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-11" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Nautilus Adapter" vertex="1">
+                    <mxGeometry height="60" width="120" x="520" y="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-25" edge="1" parent="1" source="dLJMeGGomResdeYwptpP-12" style="edgeStyle=none;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="dLJMeGGomResdeYwptpP-9">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-12" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="..." vertex="1">
+                    <mxGeometry height="60" width="120" x="520" y="380" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-24" edge="1" parent="1" source="dLJMeGGomResdeYwptpP-13" style="edgeStyle=none;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="dLJMeGGomResdeYwptpP-10">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dLJMeGGomResdeYwptpP-13" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Other Grammar Format Adapter" vertex="1">
+                    <mxGeometry height="60" width="120" x="520" y="290" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

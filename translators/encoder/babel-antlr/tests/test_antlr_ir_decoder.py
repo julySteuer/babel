@@ -308,6 +308,28 @@ def test_auto_falls_back_to_a_space_when_no_skipped_rule_matches_a_newline():
     assert _auto("WS: [ \\t]+ -> skip ;\n") == prod([nt("A"), BabelSymbol(" "), nt("B")])
 
 
+def test_auto_does_not_use_a_newline_that_an_earlier_token_matches():
+    # logo.g4: `EOL: '\\r'? '\\n'` is defined before the skipped `WS`, so a newline is an EOL token
+    rule = _auto("EOL: '\\r'? '\\n' ;\nWS: [ \\t\\r\\n] -> skip ;\n")
+    assert rule == prod([nt("A"), BabelSymbol(" "), nt("B")])
+
+
+def test_auto_does_not_use_a_newline_that_a_text_token_can_contain():
+    # PhpLexer.g4: `HtmlText: ~[<#]+` takes newlines as text
+    rule = _auto("HtmlText: ~[<#]+ ;\nWS: [ \\t\\r\\n]+ -> skip ;\n")
+    assert rule == prod([nt("A"), BabelSymbol(" "), nt("B")])
+
+
+def test_auto_sees_a_newline_through_the_fragments_a_token_uses():
+    rule = _auto("TEXT: Any+ ;\nfragment Any: ~[<] ;\nWS: [ \\t\\r\\n]+ -> skip ;\n")
+    assert rule == prod([nt("A"), BabelSymbol(" "), nt("B")])  # TEXT itself can hold a newline
+
+
+def test_auto_keeps_the_newline_when_tokens_cannot_match_it():
+    rule = _auto("NUM: [0-9]+ ;\nCOMMENT: '#' ~[\\n]* -> skip ;\nWS: [ \\t\\r\\n]+ -> skip ;\n")
+    assert rule == prod([nt("A"), BabelSymbol("\n"), nt("B")])
+
+
 def test_auto_adds_nothing_when_only_comments_are_skipped():
     assert _auto("COMMENT: '#' ~[\\n]* -> skip ;\n") == prod([nt("A"), nt("B")])
 
