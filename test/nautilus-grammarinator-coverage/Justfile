@@ -95,9 +95,9 @@ forever limit='inf': harness harness-afl grafl nautilus-build
     just grammarinator-report
     just plot
 
-# overlay of out/nautilus.csv and out/grammarinator.csv (edges vs executions) -> out/edges.png (needs gnuplot)
+# overlay of out/nautilus.csv and out/grammarinator.csv (edges vs executions) -> out/edges.png and out/edges-time.png (needs gnuplot)
 plot:
-    gnuplot -e "nautilus='{{out}}/nautilus.csv'; grammarinator='{{out}}/grammarinator.csv'; output='{{out}}/edges.png'" {{root}}/plot.gp
+    gnuplot -e "nautilus='{{out}}/nautilus.csv'; grammarinator='{{out}}/grammarinator.csv'; output='{{out}}/edges.png'; output_time='{{out}}/edges-time.png'" {{root}}/plot.gp
 
 ca   := build / 'cov-analysis' / 'cov-analysis'
 

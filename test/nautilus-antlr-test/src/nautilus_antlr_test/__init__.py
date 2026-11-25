@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
 import json
 import os
 import re
 import subprocess
 import tempfile
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -42,8 +44,12 @@ DEFAULT_SEED_TIMEOUT = 20  # seconds antlr4-parse may take for one seed before i
 
 @dataclasses.dataclass
 class GrammarUnit:
+    """All .g4 files of one grammars-v4 directory (a directory with a desc.xml is one grammar)."""
+
     name: str
     files: list[Path]
+    entry_point: str | None = None  # <entry-point> of the desc.xml, if it has one
+    duplicate_of: str | None = None  # name of an earlier unit with exactly the same files
 
 
 def clone_grammars_v4(dest: Path) -> Path:
@@ -57,32 +63,48 @@ def prune_non_grammar_files(root: Path) -> None:
     for path in root.rglob("*"):
         if ".git" in path.parts:
             continue
-        if path.is_file() and path.suffix != ".g4":
+        if path.is_file() and path.suffix != ".g4" and path.name != "desc.xml":
             path.unlink()
 
 
-def discover_units(root: Path) -> list[GrammarUnit]:
-    by_dir: dict[Path, list[Path]] = defaultdict(list)
-    for path in root.rglob("*.g4"):
-        by_dir[path.parent].append(path)
+def read_entry_point(desc_xml: Path) -> str | None:
+    """The `<entry-point>` (start rule) of a grammars-v4 desc.xml; only a minority of them has one."""
+    try:
+        node = ET.parse(desc_xml).getroot().find("entry-point")
+    except ET.ParseError:
+        return None
+    text = (node.text or "").strip() if node is not None else ""
+    return text or None
 
+
+def discover_units(root: Path) -> list[GrammarUnit]:
+    """One unit per directory with a desc.xml and .g4 files (all .g4 files of the directory, parser files first).
+
+    The desc.xml is what grammars-v4 itself uses to define a grammar, so the older copy of the repository in
+    antlr/antlr4/examples/grammars-v4 (no desc.xml) and loose example or per-target copies are not units.
+    A unit whose files are byte-identical to those of an earlier one is marked as duplicate and not tested again."""
     units: list[GrammarUnit] = []
-    for files in by_dir.values():
-        by_name = {f.name: f for f in files}
-        paired: set[Path] = set()
-        for f in files:
-            if f.stem.endswith("Lexer"):
-                parser_file = by_name.get(f"{f.stem[: -len('Lexer')]}Parser.g4")
-                if parser_file is not None:
-                    units.append(
-                        GrammarUnit(
-                            name=f.stem[: -len("Lexer")], files=[parser_file, f]
-                        )
-                    )
-                    paired.update([f, parser_file])
-        units.extend(
-            GrammarUnit(name=f.stem, files=[f]) for f in files if f not in paired
+    seen: dict[tuple, str] = {}  # (file name, content hash) of every file of a unit -> unit name
+    for desc in sorted(root.rglob("desc.xml")):
+        if ".git" in desc.parts:
+            continue
+        files = sorted(
+            desc.parent.glob("*.g4"), key=lambda f: (f.stem.endswith("Lexer"), f.name)
         )
+        if not files:
+            continue
+        unit = GrammarUnit(
+            name=desc.parent.relative_to(root).as_posix(),
+            files=files,
+            entry_point=read_entry_point(desc),
+        )
+        key = tuple(
+            (f.name, hashlib.sha256(f.read_bytes()).hexdigest()) for f in sorted(files)
+        )
+        unit.duplicate_of = seen.setdefault(key, unit.name)
+        if unit.duplicate_of == unit.name:
+            unit.duplicate_of = None
+        units.append(unit)
     return units
 
 
@@ -107,6 +129,19 @@ def clean_grammar(source: str) -> str:
         lambda m: m.group(0) if m.group(0)[0] in "'[" else "", source
     )
     return _strip_braced_blocks(LITERAL_RE.sub("''", without_comments))
+
+
+def resolve_start_rule(unit: GrammarUnit) -> tuple[str | None, str]:
+    """The start rule and where it came from: the `<entry-point>` of the desc.xml if it names a parser rule of the
+    unit, otherwise the heuristic of find_start_rule. (None, "") if the unit has no parser rules at all."""
+    heuristic = find_start_rule(unit)
+    if heuristic is None:
+        return None, ""
+    if unit.entry_point is not None:
+        source = clean_grammar("\n".join(f.read_text(errors="ignore") for f in unit.files))
+        if unit.entry_point in {m.group(1) for m in PARSER_RULE_RE.finditer(source)}:
+            return unit.entry_point, "desc.xml"
+    return heuristic, "heuristic"
 
 
 def find_start_rule(unit: GrammarUnit) -> str | None:
@@ -234,6 +269,36 @@ def run_fuzzer(
     }
 
 
+def check_nautilus(
+    nautilus_grammar: Path, depth: int = DEFAULT_DEPTH, timeout: int = 600
+) -> None:
+    """Only asks Nautilus whether it accepts the grammar; raises if not.
+
+    Reuses the grammar fuzzer without --antlr: it loads the grammar, generates a single tree, unparses it and exits.
+    Nothing is parsed with ANTLR, so a failure here is a failure of the grammar (or of Nautilus), never of antlr4-parse.
+    """
+    try:
+        result = subprocess.run(
+            [str(FUZZER_BIN), "-n", "1", "--depth", str(depth), str(nautilus_grammar)],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as err:
+        raise RuntimeError(f"nautilus check timed out after {timeout}s") from err
+    if result.returncode != 0:
+        raise RuntimeError(
+            "nautilus rejected the grammar: "
+            + (
+                # the panic message, not the trailing "run with RUST_BACKTRACE" note
+                [l for l in result.stderr.strip().splitlines() if not l.startswith("note:")][-1]
+                if result.stderr.strip()
+                else "non-zero exit status"
+            )
+        )
+
+
 def tool_failure(report: dict) -> str | None:
     """antlr4-parse always enters the start rule, so a seed without any trace means the ANTLR tooling failed
     (grammar needs a target-specific base class, wrong start rule, ...). That is not a coverage of 0."""
@@ -255,21 +320,32 @@ def evaluate_unit(
     timeout: int | None = None,
     whitespace: str = "auto",
     file_stem: str | None = None,
+    check_only: bool = False,
 ) -> dict:
-    start_symbol = find_start_rule(unit)
+    if unit.duplicate_of is not None:
+        return {
+            "name": unit.name,
+            "status": "skipped",
+            "reason": f"same files as {unit.duplicate_of}",
+        }
+    start_symbol, start_source = resolve_start_rule(unit)
     if start_symbol is None:
         return {
             "name": unit.name,
             "status": "skipped",
             "reason": "no parser rules found",
         }
+    start = {"start_rule": start_symbol, "start_rule_source": start_source}
 
     # unit names are not unique across the corpus, the file name must be
-    nautilus_grammar = work_dir / f"{file_stem or unit.name}.py"
+    nautilus_grammar = work_dir / f"{(file_stem or unit.name).replace('/', '_')}.py"
     try:
         translate_to_nautilus(unit, start_symbol, nautilus_grammar, whitespace)
         if translate_only:
-            return {"name": unit.name, "status": "ok"}
+            return {"name": unit.name, "status": "ok", **start}
+        if check_only:
+            check_nautilus(nautilus_grammar, depth)
+            return {"name": unit.name, "status": "ok", **start}
         report = run_fuzzer(
             nautilus_grammar,
             unit,
@@ -285,14 +361,15 @@ def evaluate_unit(
             "name": unit.name,
             "status": "error",
             "reason": (err.stderr or str(err)).strip(),
+            **start,
         }
     except Exception as err:  # noqa: BLE001 - every failure is a data point for the score
-        return {"name": unit.name, "status": "error", "reason": str(err).strip()}
+        return {"name": unit.name, "status": "error", "reason": str(err).strip(), **start}
 
     failure = tool_failure(report)
     if failure is not None:
-        return {"name": unit.name, "status": "error", "reason": failure, **report}
-    return {"name": unit.name, "status": "ok", **report}
+        return {"name": unit.name, "status": "error", "reason": failure, **start, **report}
+    return {"name": unit.name, "status": "ok", **start, **report}
 
 
 def summarize(results: list[dict]) -> dict:
@@ -305,6 +382,12 @@ def summarize(results: list[dict]) -> dict:
         "grammars_total": len(results),
         "grammars_ok": len(ok),
         "grammars_skipped": sum(r["status"] == "skipped" for r in results),
+        "grammars_skipped_duplicate": sum(
+            r["status"] == "skipped" and r.get("reason", "").startswith("same files as")
+            for r in results
+        ),
+        "start_rule_from_desc_xml": sum(r.get("start_rule_source") == "desc.xml" for r in results),
+        "start_rule_from_heuristic": sum(r.get("start_rule_source") == "heuristic" for r in results),
         "grammars_errored": sum(r["status"] == "error" for r in results),
         "grammars_antlr_tool_failed": sum(
             r["status"] == "error" and "no trace" in r.get("reason", "")
@@ -319,7 +402,9 @@ def summarize(results: list[dict]) -> dict:
     }
 
 
-def report(results: list[dict], translate_only: bool = False) -> None:
+def report(
+    results: list[dict], translate_only: bool = False, check_only: bool = False
+) -> None:
     table = PrettyTable()
     table.field_names = ["Grammar", "Status", "Coverage", "Rules", "Seeds", "Time", "Details"]
     table.align["Grammar"] = "l"
@@ -328,7 +413,7 @@ def report(results: list[dict], translate_only: bool = False) -> None:
 
     for r in results:
         if r["status"] == "ok" and "coverage" not in r:
-            table.add_row([r["name"], r["status"], "-", "-", "-", "-", "translated"])
+            table.add_row([r["name"], r["status"], "-", "-", "-", "-", "accepted by nautilus" if check_only else "translated"])
         elif r["status"] == "ok":
             table.add_row(
                 [
@@ -355,12 +440,17 @@ def report(results: list[dict], translate_only: bool = False) -> None:
         f"{summary['grammars_ok']} ok, {summary['grammars_skipped']} skipped, {summary['grammars_errored']} errored"
         f" ({summary['grammars_antlr_tool_failed']} of them because antlr4-parse produced no trace)"
     )
+    print(
+        f"Start rule: {summary['start_rule_from_desc_xml']} from desc.xml, "
+        f"{summary['start_rule_from_heuristic']} from the heuristic; "
+        f"{summary['grammars_skipped_duplicate']} unit(s) skipped as exact duplicates"
+    )
     if summary["seeds_timed_out"]:
         print(
             f"{summary['seeds_timed_out']} seed(s) in {summary['grammars_with_timed_out_seeds']} grammar(s) "
             "hit the antlr4-parse limit; their traces are partial"
         )
-    if not translate_only:
+    if not translate_only and not check_only:
         print(
             f"Average rule coverage across successful runs: {summary['average_coverage']:.2%} "
             f"(all rules pooled: {summary['rule_weighted_coverage']:.2%}, "
@@ -437,7 +527,15 @@ def main() -> None:
         help="only translate every grammar to a nautilus grammar (no fuzzing) "
         "to find grammars that break the translation",
     )
+    parser.add_argument(
+        "--check-only",
+        action="store_true",
+        help="translate every grammar and only check that nautilus accepts it (the fuzzer loads it and generates one seed); "
+        "no antlr4-parse and no coverage",
+    )
     args = parser.parse_args()
+    if args.check_only and args.translate_only:
+        parser.error("--check-only and --translate-only are mutually exclusive")
 
     if not args.translate_only:
         build_fuzzer()
@@ -473,6 +571,7 @@ def main() -> None:
                     args.timeout,
                     args.whitespace,
                     f"{index:04d}_{unit.name}",
+                    args.check_only,
                 ): index
                 for index, unit in enumerate(units)
             }
@@ -480,7 +579,7 @@ def main() -> None:
                 results_by_index[futures[future]] = future.result()
         results = [results_by_index[i] for i in range(len(units))]
 
-    report(results, args.translate_only)
+    report(results, args.translate_only, args.check_only)
 
     if args.output_json is not None:
         args.output_json.write_text(

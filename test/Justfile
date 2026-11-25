@@ -6,5 +6,8 @@ import 'test-grammars/grammarinator.just'
 test_grammars_v4 repetitions limit:
     uv run nautilus-antlr-test --limit {{limit}} --repetitions {{repetitions}}
 
+test_check_grammars_v4:
+    uv run nautilus-antlr-test --check-only
+
 test_translate_grammars_v4:
     uv run nautilus-antlr-test --translate-only

@@ -118,7 +118,7 @@
 \chapter*{Acknowledgments}
 \chapter*{Abstract}
 Structure-aware fuzzers like Nautilus use their own grammar formats. These formats are often poorly supported, because they are useless outside of one specific fuzzer. Other formats are much better supported. One example is ANTLR. It has a large community and many well-maintained grammars in repositories like grammars-v4. It would be useful to use these grammars in tools with less common formats like Nautilus. This thesis presents Babel, a unified grammar translator for context-free fuzzing grammars. Babel translates ANTLR grammars to Nautilus in bulk. This way, Nautilus can benefit from the existing ANTLR grammars. Babel is also modular. Users can add their own adapters to translate to and from other grammar formats.
-To evaluate the feasibility and performance of Babel, I tested it on 355 grammars from the grammars-v4 repository. The evaluation checks the accuracy of the translation, how many grammars can be translated, and the performance of the generated Nautilus grammars compared to an ANTLR-native fuzzer.
+To evaluate the feasibility and performance of Babel, I tested it on 472 grammar units from the grammars-v4 repository. The evaluation checks the accuracy of the translation, how many grammars can be translated, and the performance of the generated Nautilus grammars compared to an ANTLR-native fuzzer.
 \tableofcontents
 
 \cleardoublepage
@@ -177,24 +177,6 @@ The rest of this thesis is organized as follows. Chapter~\ref{chapter:background
 % ---------------------------------------------- %
 \chapter{Background}
 \label{chapter:background}
-\section{Fuzzing and Fuzzers}
-\label{section:fuzzing}
-% * Fuzzing is a way to test a program by executing it (or one part of it) repetatly with different inputs. the bahviour of the software under test is monitored and reported
-% * for meaningful results they are usually run for days / weeks 
-% * There are many kinds of fuzzers. The most important ones for this paper are coverage guided fuzzers and the difference of coverage guided to "blind" generational fuzzers. Also mention mutational fuzzers 
-% * show image of the fuzz loop 
-% * Introduce popular fuzzers and introduce what a Fuzzer is (fuzzing toolboxes like LibAfl and out of the box fussers like AFL++)
-Fuzzing is a software testing technique. A fuzzer repeatedly runs a program with different inputs, which are mostly random or generated, and monitors its behavior. It looks for crashes, invalid states, and security vulnerabilities. Inputs that trigger such behavior are called \emph{interesting}. For meaningful results, fuzzing campaigns often run for days or weeks without interruption. During this time, they test millions of inputs.
-
-Fuzzers differ in how they work. Three questions are important for this thesis: whether the fuzzer uses feedback from the program, how it creates new inputs, and whether it knows the structure of the input.
-
-\begin{description}
-    \item[Blackbox and greybox fuzzing.] Blackbox fuzzers receive no feedback from the program. They only observe whether the program crashes. Greybox fuzzers instrument the program to measure code coverage, for example edge coverage. They keep inputs that reach new coverage, because these inputs explore more of the program. This is called \emph{coverage-guided} fuzzing.
-    \item[Generational and mutational fuzzing.] Generational fuzzers create each input from scratch. Mutational fuzzers change existing inputs, for example by flipping bytes. Mutational fuzzers are often coverage-guided, since the feedback tells them which inputs are worth mutating. However, they do not have to be.
-    \item[Grammar-based and structure-aware fuzzing.] Grammar-based fuzzers know the structure of the input from a grammar. They generate or mutate inputs so that they follow this grammar. A grammar-based fuzzer can be blackbox or greybox, and generational or mutational.
-\end{description}
-
-These properties can be combined. Nautilus~\cite{aschermann19-nautilus}, for example, is a grammar-based, mutational, and coverage-guided fuzzer. In the AFL++ version used in this thesis, Grammarinator~\cite{hodovan26-grammarinator-aflpp} is also grammar-based, mutational, and coverage-guided (Section~\ref{section:grammarinator}). The two fuzzers differ mainly in the grammar format they read.
 
 \section{Context Free Grammars}
 \label{section:cfg}
@@ -219,10 +201,9 @@ generates all strings of balanced parentheses, such as \texttt{(()())}. The rule
 A CFG can be \emph{ambiguous}: some strings have more than one derivation tree. The grammar above is an example, since \texttt{()()()} can be derived in several ways.
 
 CFGs have limits. Some properties of real languages are not context-free, for example that a variable must be declared before it is used. Grammar formats therefore often add extra features on top of pure CFGs. Section~\ref{section:ebnf} describes common notations, and Chapter~\ref{chapter:babel} discusses which features cannot be translated.
-
-\section{BNF and EBNF}
+\newline \\
 \label{section:ebnf}
-The Backus-Naur Form (BNF) and the Extended Backus-Naur Form (EBNF) are metalanguages for writing context-free grammars (Section~\ref{section:cfg}) as text. They are widely used to describe the syntax of file formats and programming languages. Many grammar formats, including the one of ANTLR, are based on them.
+A way to express context free grammars as textare the Backus-Naur Form (BNF) and the Extended Backus-Naur Form (EBNF). They are widely used to describe the syntax of file formats and programming languages. Many grammar formats, including the one of ANTLR, are based on them.
 
 \subsection{BNF}
 A BNF grammar consists of rules of the form \verb|<Name> ::= ...|. The concepts are the same as in Section~\ref{section:cfg}:
@@ -373,23 +354,25 @@ ANTLR has been released in several generations. This thesis uses ANTLR~4, the la
 \label{section:ir-multipass}
 A compiler translates a program from one language into another. A \emph{transpiler}, also called a source-to-source compiler, does this between two languages of a similar level of abstraction. Babel is a transpiler for grammar formats. Both compilers and transpilers are usually built as \emph{multi-pass} translators. They do not translate their input in a single step. Instead, they split the work into several passes. Each pass has one clear task and passes its result to the next one. There are three kinds of passes:
 
-\begin{itemize}
-    \item \textbf{Front end:} reads the input and converts it into an intermediate representation (IR).
-    \item \textbf{Middle end:} analyzes and transforms the IR, for example by simplifying or normalizing it.
-    \item \textbf{Back end:} converts the IR into the target format.
-\end{itemize}
+\section{Fuzzing and Fuzzers}
+\label{section:fuzzing}
+% * Fuzzing is a way to test a program by executing it (or one part of it) repetatly with different inputs. the bahviour of the software under test is monitored and reported
+% * for meaningful results they are usually run for days / weeks 
+% * There are many kinds of fuzzers. The most important ones for this paper are coverage guided fuzzers and the difference of coverage guided to "blind" generational fuzzers. Also mention mutational fuzzers 
+% * show image of the fuzz loop 
+% * Introduce popular fuzzers and introduce what a Fuzzer is (fuzzing toolboxes like LibAfl and out of the box fussers like AFL++)
+Fuzzing is a software testing technique. A fuzzer repeatedly runs a program with different inputs, which are mostly random or generated, and monitors its behavior. It looks for crashes, invalid states, and security vulnerabilities. Inputs that trigger such behavior are called \emph{interesting}. For meaningful results, fuzzing campaigns often run for days or weeks without interruption. During this time, they test millions of inputs.
 
-The IR sits between the front end and the back end. It is a data structure that does not belong to the input format or to the output format, but keeps the meaning of the input. This separates two concerns. The front end only has to understand the input format, and the back end only has to write the output format. Neither has to know anything about the other.
+Fuzzers differ in how they work. Three questions are important for this thesis: whether the fuzzer uses feedback from the program, how it creates new inputs, and whether it knows the structure of the input.
 
-This separation makes translators reusable. Without an IR, translating between $N$ formats needs up to $N \times (N-1)$ separate translators, one for every ordered pair. With an IR, each format needs only one front end and one back end, so $2N$ components are enough. A new input format needs one new front end, and a new output format needs one new back end. Each new component works together with all existing ones.
+\begin{description}
+    \item[Blackbox and greybox fuzzing.] Blackbox fuzzers receive no feedback from the program. They only observe whether the program crashes. Greybox fuzzers instrument the program to measure code coverage, for example edge coverage. They keep inputs that reach new coverage, because these inputs explore more of the program. This is called \emph{coverage-guided} fuzzing.
+    \item[Generational and mutational fuzzing.] Generational fuzzers create each input from scratch. Mutational fuzzers change existing inputs, for example by flipping bytes. Mutational fuzzers are often coverage-guided, since the feedback tells them which inputs are worth mutating. However, they do not have to be.
+    \item[Grammar-based and structure-aware fuzzing.] Grammar-based fuzzers know the structure of the input from a grammar. They generate or mutate inputs so that they follow this grammar. A grammar-based fuzzer can be blackbox or greybox, and generational or mutational.
+\end{description}
 
-\subsection{Example: LLVM} 
-LLVM~\cite{lattner04-llvm} is one of the best-known frameworks built around an IR. Front ends for languages such as C and C++ (Clang), Rust and Swift translate their input into the LLVM IR. Back ends then turn the IR into machine code for architectures such as x86, ARM, and WebAssembly. Any front end can be combined with any back end, so supporting a new language or a new architecture needs only one new component.
-
-The LLVM IR is a low-level, typed language. The optimization passes of LLVM work on this IR. They do not need to know the source language or the target architecture, so every language benefits from every optimization.
-
-
-\section{Nautilus}
+These properties can be combined. Nautilus~\cite{aschermann19-nautilus}, for example, is a grammar-based, mutational, and coverage-guided fuzzer. In the AFL++ version used in this thesis, Grammarinator~\cite{hodovan26-grammarinator-aflpp} is also grammar-based, mutational, and coverage-guided (Section~\ref{section:grammarinator}). The two fuzzers differ mainly in the grammar format they read.
+\subsection{Nautilus}
 \label{section:nautilus}
 Nautilus~\cite{aschermann19-nautilus} is a coverage-guided grammar fuzzer with its own grammar format, which is written in a Python file. Instead of blindly generating new inputs, it receives feedback about how each input performs. Nautilus uses this feedback to decide which inputs to keep. At the time of its publication, this was uncommon, because most grammar fuzzers only generated inputs and received no feedback.
 
@@ -424,7 +407,7 @@ As the listing shows, Nautilus has several ways to define a production rule. In 
 
 % TODO: Maybe mentaion that nautilus is BNF type grammar
 
-\section{Grammarinator}
+\subsection{Grammarinator}
 \label{section:grammarinator}
 Grammarinator~\cite{hodovan18-grammarinator} is an open-source grammar-based fuzzer. It reads grammars in the ANTLR format directly (Section~\ref{section:antlr}), so existing ANTLR grammars can be used without translation. Originally, Grammarinator was a blackbox fuzzer (Section~\ref{section:fuzzing}) that generated inputs without feedback from the target. Later work added greybox fuzzing, first with LibFuzzer~\cite{hodovan25-grammarinator-libfuzzer} and most recently with AFL++~\cite{hodovan26-grammarinator-aflpp}. This thesis uses the AFL++ version.
 
@@ -432,9 +415,25 @@ Like Nautilus (Section~\ref{section:nautilus}), greybox Grammarinator mutates tr
 
 Because Grammarinator reads ANTLR grammars natively, it serves as the baseline in this thesis. It fuzzes with the original ANTLR grammar, while Nautilus fuzzes with the grammar that Babel translates. Chapter~\ref{chapter:evaluation} compares the two.
 
+
+\begin{itemize}
+    \item \textbf{Front end:} reads the input and converts it into an intermediate representation (IR).
+    \item \textbf{Middle end:} analyzes and transforms the IR, for example by simplifying or normalizing it.
+    \item \textbf{Back end:} converts the IR into the target format.
+\end{itemize}
+
+The IR sits between the front end and the back end. It is a data structure that does not belong to the input format or to the output format, but keeps the meaning of the input. This separates two concerns. The front end only has to understand the input format, and the back end only has to write the output format. Neither has to know anything about the other.
+
+This separation makes translators reusable. Without an IR, translating between $N$ formats needs up to $N \times (N-1)$ separate translators, one for every ordered pair. With an IR, each format needs only one front end and one back end, so $2N$ components are enough. A new input format needs one new front end, and a new output format needs one new back end. Each new component works together with all existing ones.
+
+\subsection{Example: LLVM} 
+LLVM~\cite{lattner04-llvm} is one of the best-known frameworks built around an IR. Front ends for languages such as C and C++ (Clang), Rust and Swift translate their input into the LLVM IR. Back ends then turn the IR into machine code for architectures such as x86, ARM, and WebAssembly. Any front end can be combined with any back end, so supporting a new language or a new architecture needs only one new component.
+
+The LLVM IR is a low-level, typed language. The optimization passes of LLVM work on this IR. They do not need to know the source language or the target architecture, so every language benefits from every optimization.
 \chapter{Babel}
 \label{chapter:babel}
 \section{Challenges} % Challenges that need to be addressed. like what can / should the IR do. what are challanges in designing an encoder and decoder (use ANTLR and Nautilus Challanges as a example. Here things like the Whitespaces not rules etc can be menitoned. Maybe make paraghrps for every part of the translation and it challanges
+% TODO: Remove this section
 \begin{description}
     \item[C1: Finding a common way to represent grammars and determening the structure of babel] To not create a encoder and a decoder for every language pair a generic solution needs to be developed akin to the Intermediate Representation of LLVM \ref{section:ir-multipass}
     \item[C2: Determening the structure of the intermediate representation] This is a core decision which determines the general expressiveness of Babel. To choosen representation shall be able to encode as much already exiting grammrs without being too expressve as this leads to complexity inside of the decoding which might not be needed.
@@ -443,12 +442,6 @@ Because Grammarinator reads ANTLR grammars natively, it serves as the baseline i
     \item[C4: Decoding Nautilus] Nautilus grammar is of a BNF style thus needs the previously mentioned EBNF to BNF rewrite rules (Section~\ref{section:ebnf}).
 \end{description}
 \section{Architecture and Structure}
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.5\textwidth]{BabelArchitecture.png}
-    \label{fig:babel-fold}
-    \caption{The Babel folder structure}
-\end{figure}
 Babel is a modular multi-pass transpiler \ref{section:ir-multipass}.
 As already shown in \ref{fig:ir_arch} babel is build to work on adapters connected by an intermediate representation. This architecture was choosen so that for every new grammar format added only a encoding and a decoding adapter have to be created, thus writing a adapter for example an encoding adapter for the EBNF format could directly use all decoding adapters present.
 The project is strucutured as follows: \\
@@ -487,21 +480,25 @@ EBNF was chosen because it keeps more information than BNF. Rewriting EBNF to BN
 
 Figure~\ref{fig:babel-ir} shows the structure of the IR. A grammar consists of rules. Each rule has a name and a list of alternatives, called \emph{options} in Babel. An option is a sequence of \emph{atoms}. Atoms are the smallest parts of a rule and can themselves contain options, which allows nesting.
 
-\paragraph{Structure.} Elements that contain and manage Atoms
-\begin{description}
-    \item[BabelIr] A mapping from a rule name to a production
-    \item[Production - BabelProduction] A reference to a list of alternatives for this rule
-    \item[Options - BabelBlockList] Contains a list of options here refered to as blocks
-    \item[Option - BabelBlock] An option is one alternative of a rule. It is an ordered sequence of atoms. Only valid inside a \emph{BlockList}
-\end{description}
+\paragraph{Structure.}
+The structural elements of Babel contain and organise atoms. At the top level, a
+\texttt{BabelIr} maps each rule name to a \texttt{BabelProduction}, which holds
+the alternatives of that rule. These alternatives are stored in a
+\texttt{BabelBlockList}, an ordered collection of options, each represented by a
+\texttt{BabelBlock}. A block is a single alternative of a rule and consists of
+an ordered sequence of atoms. Blocks are only valid inside a block list.
 
-\paragraph{Atoms.} These are the parts that make up an option.
-\begin{description}
-    \item[Terminal - BabelTerminal] A terminal matches concrete text. It is either a literal string, a range of characters or numbers, or a raw regular expression. % Maybe add mapping to actual class
-    \item[Nonterminal - BabelNonterminal] A nonterminal is a reference to another rule by name.
-    \item[Nested block - BabelBlockList] When acting as an atom the BabelBlockList is used to indicate nested blocks.
-    \item[Control structure - BabelOptional, BabelStar and BabelPlus] A control structure wraps one atom and says how often it may occur. Babel has three: \emph{optional} (zero or one), \emph{zero or more} repetition, and \emph{one or more} repetition.
-\end{description}
+\paragraph{Atoms.}
+Atoms are the elements from which a block is composed. The most basic are
+terminals (\texttt{BabelTerminal}), which match concrete text and take the form
+of a literal string, a range of characters or numbers, or a raw regular
+expression. Nonterminals (\texttt{BabelNonterminal}) instead refer to another
+rule by name. A \texttt{BabelBlockList} can also appear as an atom, in which
+case it expresses a nested block of alternatives. Finally, quantification is
+expressed by control structures, each of which wraps a single atom and specifies
+how often it may occur: \texttt{BabelOptional} permits zero or one occurrence,
+\texttt{BabelStar} zero or more, and \texttt{BabelPlus} one or more.
+
 \subsection{Example Translation}
 \begin{lstlisting}[caption={ANTLR Input}, label={lst:ir-ex-ant}]
     NUMBER : DIGIT+ ('.' DIGIT+)? ;
@@ -514,8 +511,9 @@ Taking the example ANTLR grammar from Figure~\ref{lst:ir-ex-ant} which describes
     \caption{IR tree for the ANTLR rules \texttt{NUMBER} and \texttt{DIGIT}}
     \label{fig:babel-ir-example}
 \end{figure}
-\section{ANTLR Encoder Design}
-\section{Nautilus Decoder Design}
+\section{Implementation}
+\subsection{ANTLR Encoder}
+\subsection{Nautilus Decoder}
 \section{Limitations of Babel}
 Babel and its IR are build to process and represent at most context free grammars \ref{section:cfg}. This means that, should a grammar format, require operations which need more a expressive grammar babel wont be able to accuratly represent the grammar format. For Example if an ANTLR grammar requires the use of actions or commands \ref{section:antlr} for the grammar to be valid it cannot generally be converted to CFG due to arbitrary code execution being present.
 \chapter{Evaluation}
@@ -528,10 +526,110 @@ All Evaluation will be made on the basis of the ANTLR to Nautilus conversion.
     \item[RQ3: Compairson with ANTLR native fuzzer] How does the performance of the translated Nautilus grammar compare to a ANTLR native fuzzer ?
 \end{description}
 
-\section{Grammar Complentess}
-\paragraph{Setup}
-This test tries to compile all grammars contained inside the grammars-v4~\cite{grammars-v4} repository from ANTLR to Nautilus using babel
+\section{Corpus and Grammar Units}
+\label{section:eval-corpus}
+The completeness test (Section~\ref{section:eval-completeness}) and the performance test (Section~\ref{section:eval-performance}) use the same corpus, the grammars-v4 repository~\cite{grammars-v4}. This section describes how the test turns the repository into a list of grammar units, because this decision determines which grammars are evaluated. The corpus preparation is part of the \emph{nautilus-antlr-test} project of the Babel repository~\cite{babel-github}.
 
+\subsection{Defining a Grammar Unit}
+The repository states that it contains 355 grammars. This number cannot be reproduced from the repository, and there is no obvious way to count grammars in it. Counting \texttt{.g4} files is wrong, because one grammar often consists of several files, such as a lexer file, a parser file, and imported helper grammars. Counting lexer and parser pairs is wrong as well, because the repository also contains example grammars, copies for other targets, and several versions of the same grammar.
+
+The test therefore uses the metadata that the repository provides. Every grammar directory contains a \texttt{desc.xml} file, which describes the grammar. It lists, among other things, the supported targets, test inputs, and in some cases the start rule. The test defines a \emph{grammar unit} as follows:
+\begin{quote}
+A grammar unit is a directory that contains a \texttt{desc.xml} and at least one \texttt{.g4} file. Its files are all \texttt{.g4} files of this directory.
+\end{quote}
+All files of the directory are passed to Babel together, because imported grammars must be available during the translation. The \texttt{grammar-files} property of the \texttt{desc.xml} is not used for this. Only 5 of the 472 files have it, and in the Hive grammar it lists the main files but not the imported ones.
+
+This definition results in 472 units. The number is higher than the repository's 355 because versions and dialects of a grammar have their own directory and \texttt{desc.xml}, for example the Hive grammars in \texttt{v2}, \texttt{v3}, and \texttt{v4}. Of the 472 units, 364 are top-level directories of the repository, and 108 are nested versions or dialects. Each unit is evaluated on its own.
+
+\subsection{Excluded Files}
+Defining units by the \texttt{desc.xml} excludes everything that is not a grammar of its own without a list of exceptions. The following files of the repository are not part of any unit:
+\begin{itemize}
+    \item \textbf{A copy of the repository.} The directory \texttt{antlr/\allowbreak{}antlr4/\allowbreak{}examples/\allowbreak{}grammars-v4} contains an older snapshot of the repository with 538 \texttt{.g4} files. 425 of them are identical to the current files, 92 differ from them, and 21 exist only in the copy. This copy has no \texttt{desc.xml} files. If it were included, a large part of the corpus would be tested twice.
+    \item \textbf{Example and test grammars of ANTLR.} The directory \texttt{antlr/\allowbreak{}antlr4/\allowbreak{}examples} contains small grammars that test ANTLR itself, for example for old issues.
+    \item \textbf{Copies for other targets and templates.} Directories such as \texttt{javascript/\allowbreak{}ecmascript/\allowbreak{}Go} contain a grammar adapted for one target language, and \texttt{\_scripts/\allowbreak{}templates} contains template files.
+\end{itemize}
+In total, 19 directories with \texttt{.g4} files have no \texttt{desc.xml}. A few of them may be real grammars, for example \texttt{aspectj}, \texttt{objc/\allowbreak{}one-step-processing}, \texttt{objc/\allowbreak{}two-step-processing}, \texttt{sql/\allowbreak{}mysql/\allowbreak{}Oracle/\allowbreak{}original}, and \texttt{bcpl/\allowbreak{}ignore}. They are not evaluated, because the repository does not define them as grammars. This makes the corpus slightly smaller and, in exchange, avoids testing the same grammar twice.
+
+\paragraph{Duplicates.}
+As an additional safeguard, the test remembers a hash of every file name and file content of the units it has seen. A unit with exactly the same files as an earlier one is skipped, and the result records which unit it duplicates. In the current corpus, no unit is a duplicate. The set is not the main mechanism, because a path-based or content-based set alone would not have worked on the repository copy. Its paths differ from the originals, and the 92 changed and 21 additional files would still have been counted as separate grammars.
+
+A unit without any parser rule is skipped as well, because it has no start symbol and a fuzzer needs one to generate anything. No unit in the current corpus is affected. Lexer-only files, which earlier versions of the test skipped, are no longer units, because they lie in the same directory as the parser that uses them.
+
+\subsection{Start Rule}
+\label{subsection:eval-start-rule}
+Every translation needs a start rule. The test decides on it in two steps:
+\begin{enumerate}
+    \item If the \texttt{desc.xml} has an \texttt{entry-point} property, its value is used, after checking that it names a parser rule of the unit. If it does not, the test falls back to the second step.
+    \item Otherwise, the test uses a heuristic. It prefers a parser rule that is not referenced by any other rule and that uses \texttt{EOF}, then any rule that uses \texttt{EOF}, then any unreferenced rule, and finally the first rule of the files. Comments, string literals, character sets, and code blocks in braces are removed before the rules are read, so that code in actions is not mistaken for a rule.
+\end{enumerate}
+Only 84 of the 472 \texttt{desc.xml} files declare an entry point. For the remaining 388 units, the start rule comes from the heuristic, which can be wrong. A wrong start rule does not change the result of the completeness test, because it only needs \emph{a} valid rule. It can, however, lower the rule coverage in the performance test (Section~\ref{section:eval-performance}), because rules that cannot be reached from the chosen start rule are never generated. The result file records the start rule and its source for every unit, so the two groups can be analysed separately.
+
+\section{Grammar Completeness}
+\label{section:eval-completeness}
+\subsection{Goal}
+This test checks that the translation pipeline is robust. It answers two questions for every grammar in the corpus: does Babel translate it without failing, and does Nautilus accept the generated grammar? The test makes no statement about \emph{how good} a generated grammar is, that is, whether it produces meaningful inputs or reaches all rules of the original. Section~\ref{section:eval-performance} measures this. A grammar passes this test if both of the following hold:
+\begin{enumerate}
+    \item Babel finishes the translation without raising an error.
+    \item Nautilus loads the generated grammar and generates inputs from it without raising an error.
+\end{enumerate}
+
+\subsection{Setup}
+\label{subsection:eval-completeness-setup}
+The test runs on the corpus of grammar units described in Section~\ref{section:eval-corpus}. This includes the rules for choosing a start symbol.
+% TODO: add the grammars-v4 commit hash and the clone date (a clone on 2026-11-25 was at 2466fca3a966267a25b79def7845a747e539f6bb; verify it is the one used)
+
+\paragraph{Procedure.}
+The test is implemented in the \emph{nautilus-antlr-test} project of the Babel repository~\cite{babel-github}. For every unit, it runs the following steps and records a status (\emph{ok}, \emph{skipped}, or \emph{error}) with the reason for a failure:
+\begin{enumerate}
+    \item Determine the start rule, or skip the unit.
+    \item Translate the unit to a Nautilus grammar with Babel, using the default whitespace mode (\texttt{auto}).
+    \item Check the grammar with Nautilus (\texttt{--check-only}). The grammar fuzzer loads the grammar, generates a single input from it, and exits. No ANTLR tool is involved, so a failure in this step is always a failure of the generated grammar or of Nautilus. The generator uses the same size budget of 10000 nodes as the performance test (Section~\ref{section:eval-performance}). With the default budget of 60 derivation steps, Nautilus cannot derive an input for grammars with deep rule nesting, so the budget has to be raised.
+\end{enumerate}
+The translation step alone can also be run without Nautilus (\texttt{--translate-only}). This isolates failures of Babel from failures of Nautilus. Both variants produce a JSON file with the status of every unit. The result of the full check is stored in the repository as \emph{check-grammars-v4.json}.
+% TODO: add Babel commit, Nautilus / LibAFL version, and the exact commands (just recipe). Mention the Docker image for reproducibility.
+
+\paragraph{Results}
+\label{subsection:eval-completeness-results}
+Table~\ref{tab:eval-completeness} shows the results. All 472 units were translated by Babel without an error, and Nautilus accepted every generated grammar and generated an input from it.
+% TODO: add total runtime / number of parallel jobs
+
+\begin{table}[htbp]
+    \centering
+    \begin{tabular}{@{}lr@{}}
+        \toprule
+        & \textbf{Units} \\
+        \midrule
+        Grammar units found                          & 472 \\
+        Skipped                                      & 0   \\
+        Tested                                       & 472 \\
+        Translated by Babel and accepted by Nautilus & 472 \\
+        Failed                                       & 0   \\
+        \midrule
+        Start rule from \texttt{desc.xml}            & 84  \\
+        Start rule from the heuristic                & 388 \\
+        \bottomrule
+    \end{tabular}
+    \caption{Results of the completeness test on the grammars-v4 corpus.}
+    \label{tab:eval-completeness}
+\end{table}
+
+\paragraph{Discussion}
+The result shows that Babel is robust on real-world grammars. It handles the full range of ANTLR features found in grammars-v4 without crashing, and the generated grammars are well-formed Nautilus grammars. It does not show that the generated grammars are faithful to their sources. A grammar passes this test even if Babel had to leave parts of it empty, for example rules that depend on actions or predicates (Section~\ref{section:limitations}). Section~\ref{section:eval-performance} evaluates the quality of the grammars.
+
+\section{Grammar Performance}
+\label{section:eval-performance}
+\paragraph{Goal}
+This test is used to verify the quality of generated grammars. This is done through using the generated nautilus grammars, generated from the ANTLR grammars in the grammars-v4~\cite{grammars-v4} repository, and using Nautilus to generate a representative number of inputs from the grammar. these are evaluated by how many rules each input covered. The performance is measured by how high the percentage of covered rules, for every grammar and over a average of the whole test set, is. The higher the percentage the better the performance. The time it took for a coverage to be reached is not important in this test as its just serves to verify that all rules can be reached
+\paragraph{Setup}
+This test is using the \emph{babel/tests/nautilus-antlr-test} project and the a libafl nautilus fuzzer. Due to the notion of "how long" it takes the grammar and nautilus to cover most rules not being important for this test, just that it is prossible to reach most of the rules, there where some optimisations made to find rules faster and thus decrease the time needed for each test run. These changes are made in a way that should impace the performance of the fuzzer the least and increase the generation of "deep trees", which are trees with a large depth covering many rules. due to antlr-parse being a technical bottle neck (each execution taking 2 seconds) the optimisations aims to filter out less productive trees before checking the visited rules using antlr-parse. This is achived by cheaply generating a large amount of seeds which are then sorted by size and only a certain number of largest seeds are then actually processed by antlr-parse.
+% TODO: Explain this setup
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{GrammarPerformance.png}
+    \caption{Test setup for Grammar Performance}
+    \label{fig:gram-perf}
+\end{figure}
+\paragraph{Results}
 \chapter{Related Work}
 \label{chapter:related-work}
 
