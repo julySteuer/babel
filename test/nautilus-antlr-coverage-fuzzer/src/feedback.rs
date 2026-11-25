@@ -2,8 +2,8 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
 use libafl::Error;
-use libafl::executors::ExitKind;
 use libafl::HasMetadata;
+use libafl::executors::ExitKind;
 use libafl::feedbacks::{Feedback, NautilusChunksMetadata, StateInitializer};
 use libafl::generators::nautilus::NautilusContext;
 use libafl::inputs::nautilus::NautilusInput;
@@ -48,7 +48,9 @@ impl Named for RuleCoverageFeedback<'_> {
 
 impl<S> StateInitializer<S> for RuleCoverageFeedback<'_> {}
 
-impl<EM, S: HasMetadata> Feedback<EM, NautilusInput, (AntlrTraceObserver, ()), S> for RuleCoverageFeedback<'_> {
+impl<EM, S: HasMetadata> Feedback<EM, NautilusInput, (AntlrTraceObserver, ()), S>
+    for RuleCoverageFeedback<'_>
+{
     fn is_interesting(
         &mut self,
         state: &mut S,
