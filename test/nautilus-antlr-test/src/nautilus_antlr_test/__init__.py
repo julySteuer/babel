@@ -10,6 +10,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from collections import defaultdict
@@ -247,11 +248,9 @@ def run_fuzzer(
     except subprocess.TimeoutExpired as err:
         raise RuntimeError(f"fuzzer timed out after {timeout}s") from err
     if result.returncode != 0:
-        raise RuntimeError(
-            result.stderr.strip().splitlines()[-1]
-            if result.stderr.strip()
-            else "fuzzer exited with a non-zero status"
-        )
+        # the panic message, not the trailing "run with RUST_BACKTRACE" note
+        lines = [l for l in result.stderr.strip().splitlines() if not l.startswith("note:")]
+        raise RuntimeError(lines[-1] if lines else "fuzzer exited with a non-zero status")
     raw = json.loads(result.stdout.strip().splitlines()[-1])
     return {
         "coverage": raw["antlr_coverage"],
@@ -458,6 +457,27 @@ def report(
         )
 
 
+def write_results_json(args: argparse.Namespace, results: list[dict]) -> None:
+    """Writes (or rewrites) --output-json; called after every finished grammar and once more at the end."""
+    if args.output_json is None:
+        return
+    tmp = args.output_json.with_suffix(args.output_json.suffix + ".tmp")
+    tmp.write_text(
+        json.dumps(
+            {
+                "settings": {
+                    key: str(value) if isinstance(value, Path) else value
+                    for key, value in vars(args).items()
+                },
+                "summary": summarize(results),
+                "grammars": results,
+            },
+            indent=2,
+        )
+    )
+    tmp.replace(args.output_json)  # atomic: a reader never sees a half-written file
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -581,23 +601,20 @@ def main() -> None:
                 ): index
                 for index, unit in enumerate(units)
             }
+            # tqdm redraws with \r, which docker logs / pipes do not show: log one plain line per grammar as well
             for future in tqdm(as_completed(futures), total=len(futures)):
-                results_by_index[futures[future]] = future.result()
+                result = future.result()
+                results_by_index[futures[future]] = result
+                print(
+                    f"[{len(results_by_index)}/{len(units)}] {result['name']}: {result['status']}"
+                    + (f" {result['coverage']:.2%}" if "coverage" in result else "")
+                    + (f" ({result['reason'][:100]})" if result["status"] == "error" else ""),
+                    file=sys.stderr,
+                    flush=True,
+                )
+                # partial results, so that a long run can be inspected (and survives a crash)
+                write_results_json(args, [results_by_index[i] for i in sorted(results_by_index)])
         results = [results_by_index[i] for i in range(len(units))]
 
     report(results, args.translate_only, args.check_only)
-
-    if args.output_json is not None:
-        args.output_json.write_text(
-            json.dumps(
-                {
-                    "settings": {
-                        key: str(value) if isinstance(value, Path) else value
-                        for key, value in vars(args).items()
-                    },
-                    "summary": summarize(results),
-                    "grammars": results,
-                },
-                indent=2,
-            )
-        )
+    write_results_json(args, results)
