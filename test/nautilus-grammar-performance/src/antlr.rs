@@ -9,6 +9,25 @@ use regex::Regex;
 
 const ANTLR_VERSION: &str = "4.13.2";
 
+/// A command that runs the antlr4-tools executable `tool` (`antlr4` or `antlr4-parse`).
+///
+/// Calls the executable directly when it is on PATH (the project's venv, which `uv run` puts on PATH, or the
+/// docker image). `uv run <tool>` costs about a second of CPU per call and, with many calls in parallel on a big
+/// machine, several seconds each (uv syncs and locks the environment every time) - one call is made per seed.
+/// Falls back to `uv run` if the executable is not on PATH.
+fn antlr_tool_command(tool: &str) -> Command {
+    let on_path = std::env::var_os("PATH")
+        .map(|paths| std::env::split_paths(&paths).any(|dir| dir.join(tool).is_file()))
+        .unwrap_or(false);
+    if on_path {
+        Command::new(tool)
+    } else {
+        let mut command = Command::new("uv");
+        command.args(["run", tool]);
+        command
+    }
+}
+
 /// Comments, plus the string literals and char sets that must survive intact so that `'//'` or `[/]` are not
 /// read as a comment.
 fn comment_pattern() -> Regex {
@@ -118,8 +137,8 @@ pub fn build_token_vocabulary(grammar_paths: &[PathBuf]) -> TokenVocabulary {
     ));
     std::fs::create_dir_all(&out_dir).expect("failed to create antlr tokens scratch dir");
 
-    let _ = Command::new("uv")
-        .args(["run", "antlr4", "-v", ANTLR_VERSION, "-o"])
+    let _ = antlr_tool_command("antlr4")
+        .args(["-v", ANTLR_VERSION, "-o"])
         .arg(&out_dir)
         // absolute paths: with a relative one antlr4 writes into a subdirectory of the output dir
         .args(grammar_paths.iter().map(|path| {
@@ -185,8 +204,8 @@ pub fn trace_rules(
     vocabulary: &TokenVocabulary,
     timeout: Duration,
 ) -> Trace {
-    let mut child = Command::new("uv")
-        .args(["run", "antlr4-parse", "-v", ANTLR_VERSION])
+    let mut child = antlr_tool_command("antlr4-parse")
+        .args(["-v", ANTLR_VERSION])
         .args(
             grammar_paths
                 .iter()
